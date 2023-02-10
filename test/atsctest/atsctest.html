@@ -1,0 +1,1203 @@
+<html>
+	<head>
+		<style>
+			
+input[type=button]:focus {
+	background-color: #4CAF50;
+	border: none;
+	color: white;
+}
+
+select:focus {
+		background-color: #4CAF50;
+		border: none;
+		color: white;
+		
+}
+
+#myprogressBar {
+ width: 1%;
+ height: 35px;
+ background-color: #4CAF50;
+ text-align: center;
+ line-height: 32px;
+ color: black;
+}
+
+#content {
+	position:absolute;
+	z-index: 1;
+}
+	
+</style>
+		
+<script src="thunderJS.js"></script>
+<script src="URLs.js"></script> 
+
+<script>
+	// listRotate will have channel edge index values -1 or 0 or last channel index
+	var listRotate = -1; 
+
+	function log(text)
+	{
+		console.log(text);
+		document.getElementById("console").value += text+"\n";
+	}
+
+	function clearConsole()
+	{
+		document.getElementById("console").value = "";
+	}
+	
+	function clog(text)
+	{
+		clearConsole();
+		console.log(text);
+		document.getElementById("console").value += text+"\n";
+	}
+
+	function setGuideText(text)
+	{
+	document.getElementById("guideText").value = text;
+	}
+	
+	function setCurrentPlayingChText(text)
+	{
+	document.getElementById("currChSelLabel").innerHTML = text;
+	}
+	
+	function setChaCountLabel(text)
+	{
+	document.getElementById("chcountLabel").innerHTML = text;
+	}
+	
+	function clearChannelMapList() {
+		var chMapElement = document.getElementById("chMap");
+		// when length is 0, the evaluation will return false.
+		while (chMapElement.options.length)
+		{
+			// continue to remove the first option until no options remain.
+			chMapElement.remove(0);
+		}
+	}
+
+	function clearTextMapList() {
+		var selectList = document.getElementById("TextList");
+		// when length is 0, the evaluation will return false.
+		while (selectList.options.length)
+		{
+			// continue to remove the first option until no options remain.
+			selectList.remove(0);
+		}
+	}
+
+	function clearAudioMapList() {
+		var selectList = document.getElementById("AudioList");
+		// when length is 0, the evaluation will return false.
+		while (selectList.options.length)
+		{
+			// continue to remove the first option until no options remain.
+			selectList.remove(0);
+		}
+	}
+	var tc;
+	var listener;
+	var listenerOnPlayerStatus;
+	var totalChannels;
+	var aampPlayer;
+	var isPlaying;
+	var serviceTable;
+	var fromPC = false;
+        var compositein = "cvbsin://localhost/deviceid/0";
+	var hdmiin1 = "hdmiin://localhost/deviceid/0";
+	var hdmiin2 = "hdmiin://localhost/deviceid/1";
+	var hdmiin3 = "hdmiin://localhost/deviceid/2";
+	var enableNativeCC = true;
+	var ccStatus = false;
+
+	var ccInitConfigParam = {
+		nativeCCRendering: true
+	};
+	const ccOption1 = {"penItalicized":"false","textEdgeStyle":"none","textEdgeColor":"black","penSize":"small","windowFillColor":"black","fontStyle":"default","textForegroundColor":"white","windowFillOpacity":"transparent","textForegroundOpacity":"solid","textBackgroundColor":"black","textBackgroundOpacity":"solid","windowBorderEdgeStyle":"none","windowBorderEdgeColor":"black","penUnderline":"false"};
+	const ccOption2 = {"penItalicized":"false","textEdgeStyle":"none","textEdgeColor":"yellow","penSize":"small","windowFillColor":"black","fontStyle":"default","textForegroundColor":"yellow","windowFillOpacity":"transparent","textForegroundOpacity":"solid","textBackgroundColor":"cyan","textBackgroundOpacity":"solid","windowBorderEdgeStyle":"none","windowBorderEdgeColor":"black","penUnderline":"true"};
+	const ccOption3 = {"penItalicized":"false","textEdgeStyle":"none","textEdgeColor":"red","penSize":"small","windowFillColor":"black","fontStyle":"default","textForegroundColor":"red","windowFillOpacity":"transparent","textForegroundOpacity":"solid","textBackgroundColor":"black","textBackgroundOpacity":"solid","windowBorderEdgeStyle":"none","windowBorderEdgeColor":"red","penUnderline":"true"};
+	
+	var en_spaInitConfig = {
+		preferredAudioLanguage: "eng,spa"
+	};
+
+	var spa_enInitConfig = {
+		preferredAudioLanguage: "spa,eng"
+	};
+  
+  
+	
+	function Connect()
+	{
+		
+		const configSTB = {
+			host: '127.0.0.1', // ipAddr of device running Thunder
+				
+			port: 9998,
+			default:1 // versioning
+		};
+		
+		const configFromPC = {
+			host: '10.0.0.219', // ipAddr of device running Thunder
+				
+			port: 9998,
+			default:1 // versioning
+		};
+		
+		var config;
+		if(fromPC)
+		{
+			config = configFromPC; ;
+		}
+		else
+		{
+			config = configSTB;
+		}
+
+		log( "Thunder Configuration: " + JSON.stringify(config) );
+		tc = ThunderJS(config);
+	}
+
+	function Activate( callsign )
+	{
+		tc.call( "Controller","activate", {"callsign":callsign} ).then( result => {
+			log( callsign + " activated" );
+		}).catch(err => {
+			log( callsign + " activation error" );
+		});
+	}
+
+	function directTune()
+	{
+		tc.call("org.rdk.MediaServices","getServices",{}).then(result => {
+			isPlaying = false;
+			clearChannelMapList();
+
+			var chMapElement = document.getElementById("chMap");
+			var resultTable = result.table;
+			// create url list from the results
+			for (service in resultTable) {
+				tuneUrl = "tune://atsc?frequency=" + bandNameFrequencyMapper(Number(resultTable[service].bandName)) + "&serviceid=" + resultTable[service].serviceId;
+				var opt = document.createElement('option');
+				opt.text = tuneUrl;
+				opt.value = tuneUrl;
+				if( service==0 )
+				{
+					opt.selected = true;
+				}
+				chMapElement.add(opt,null);
+			}
+		}).catch(err => {
+			log('getServices Error '+ err);
+		});
+	}
+
+	/**
+	 * Convert the band name to frequency
+	 */
+	var freqTable = [
+		5700000,6300000,6900000,7900000,8500000,17700000,18300000,18900000,
+		19500000,20100000,20700000,21300000,47300000,47900000,48500000,49100000,
+		49700000,50300000,50900000,51500000,52100000,52700000,53300000,53900000,
+		54500000,55100000,55700000,56300000,56900000,57500000,58100000,58700000,
+		59300000,59900000,60500000,61100000,61700000,62300000,62900000,63500000,
+		64100000,64700000,65300000,65900000,66500000,67100000,67700000,68300000,
+		68900000,69500000,70100000,70700000,71300000,71900000,72500000,73100000,
+		73700000,74300000,74900000,75500000,76100000,76700000,77300000,77900000,
+		78500000,79100000,79700000,80300000 ];
+	function bandNameFrequencyMapper(bandName)
+	{
+		var idx = bandName-2;
+		if( idx>=0 && idx<freqTable.length )
+		{
+			return freqTable[bandName-2];
+		}
+		return 0;
+	}
+
+	function startScan()
+	{
+		tc.call("org.rdk.MediaServices","startScan", { "type": "ATSC", "onlyFree": true} ).then(result => {
+		isPlaying = false;
+		clearChannelMapList();
+			log('startScan Success'+ JSON.stringify(result))
+		}).catch(err => {
+			log('startScan Error' + err );
+		});
+	}
+	
+	function abortScan()
+	{
+		tc.call("org.rdk.MediaServices","abortScan", {} ).then(result => {
+		getAllServices();
+			log('abortScan Success'+ JSON.stringify(result));
+						
+		}).catch(err => {
+			log('abortScan Error' + err );
+		});
+	}
+	
+	function registerOnPlayerStatus ()
+	{
+		listenerOnPlayerStatus = tc.on('org.rdk.MediaPlayer','onPlayerStatus', (notification) => {
+			//var data = 'sts:' + notification.playerStatus + ' p:' + notification.position  + ' l:' + notification.length + ' loc:' + notification.locator + ' loff:' +  notification.liveOffset + ' spd:' + notification.speed ;
+			//clog(data);
+			if(isPlaying)
+			{
+				clog('Received onPlayerStatus Event ' + JSON.stringify(notification))
+				}
+		
+		});
+	}
+	
+	
+	function registerOnScanProgress()
+	{
+		listener = tc.on("org.rdk.MediaServices",'onScanProgress', (notification) => {
+				var value = notification.progress * 100;
+			
+			setProgressBarValue(value)
+			var data = 'State:' + notification.state + ' sInfo:' + notification.displaySignalInfo + ' strength:' + notification.signalStrength + ' nTv:' + notification.numTvServices + ' nRadio:' +  notification.numRadioServices + ' nData:' + notification.numDataService ;
+			clog(data);
+			if('COMPLETE' == notification.state)
+			//if('TUNING' == notification.state)
+			{
+			// clog("tuning-- " + data);
+				getAllServices();
+			}
+			
+			//	log('Received onScanProgress Event ' + JSON.stringify(notification))
+		
+		});
+	}
+	
+	function registerOnScanAction ()
+	{
+		listener = tc.on("org.rdk.MediaServices",'onScanAction ', (notification) => {
+				
+				log('Received onScanAction Event ' + JSON.stringify(notification))
+		
+		});
+	}
+	
+	function getService()
+	{
+		tc.call("org.rdk.MediaServices","getService",{"servicePk":1, "attributes": [ "pk","name","signalStrength" ]}).then(result => {
+			clog('getService Success '+ JSON.stringify(result))
+			//log('success:' + result.success)
+			//var value = result.signalStrength * 100
+			//var value = 0.27 * 100
+			//setProgressBarValue(value);
+		}).catch(err => {
+			log('getService Error '+ err)
+		});
+	}
+	
+	function ProcessServiceTable( result )
+	{
+		serviceTable = result; //store for future use
+		var chMapElement = document.getElementById("chMap");
+		totalChannels = 0;
+		for (var i in result.table) {
+			var strData = result.table[i].displayChannel + ' ' +
+				result.table[i].shortName +
+				' str=' + result.table[i].signalStrength +
+				' qual=' + result.table[i].signalQuality;
+				// +' ' + result.table[i].locator;
+				
+			var opt = document.createElement('option');
+			opt.text = strData;
+			opt.value = result.table[i].locator;
+			if( i==0 )
+			{
+				opt.selected = true;
+			}
+			chMapElement.add(opt,null);
+			totalChannels = totalChannels +1;
+			log('channel:' + strData);
+		}
+		log('total channels found:' + totalChannels);
+		setChaCountLabel( totalChannels );
+	}
+
+	function getAllServices()
+	{
+		clearChannelMapList();
+		
+		if( false )
+		{ // for simulator testing in chrome - canned channel map
+			result = {
+				"table":[]
+			};
+			for( var i=0; i<32; i++ )
+			{
+				result.table[i] = {};
+				result.table[i].locator = "live://"+(i+1);
+				result.table[i].displayChannel = "1."+(i+1);
+				result.table[i].shortName = "ABC"+(i+1);
+				result.table[i].signalStrength = "1.0";
+				result.table[i].signalQuality = "1.0";
+			}
+			ProcessServiceTable( result );
+		}
+
+		tc.call("org.rdk.MediaServices","getServices",{}).then(result => {
+			ProcessServiceTable(result);
+		}).catch(err => {
+			log('getService Error '+ err)
+		});
+	}
+
+	function getHiddenServices()
+	{
+		tc.call("org.rdk.MediaServices","getServices",{"listId":"clist:1","attributes": [ "pk","name","channel" ],"aliases": [ "pk","n" ],"filter": {"hidden":"HIDDEN", "categories": ["TV","RADIO","DATA"]}}).then(result => {
+log('getService Success '+ JSON.stringify(result));
+		}).catch(err => {
+			log('getService Error '+ err)
+		});
+	}
+	
+//	Request : {"jsonrpc":"2.0", "id":3, "method":"org.rdk.MediaGuide.1.startScan", "params":{ "servicePk": [123] }
+//Response: {"jsonrpc":"2.0", "id":3, "result": { "success": true } }
+	function startGuideScan()
+	{
+		tc.call("org.rdk.MediaGuide","startScan", { "type": "ATSC", "onlyFree": true} ).then(result => {
+		isPlaying = false;
+			log('startScan Success'+ JSON.stringify(result))
+		}).catch(err => {
+			log('startScan Error' + err );
+		});
+	}
+	
+		function abortGuideScan()
+	{
+		tc.call("org.rdk.MediaGuide","abortScan", {} ).then(result => {
+			log('abortScan Success'+ JSON.stringify(result));
+		}).catch(err => {
+			log('abortScan Error' + err );
+		});
+	}
+	
+	function getAllGuideEvents()
+	{ // todo: get guide data only for currently tuned program
+		tc.call("org.rdk.MediaGuide","getEvents",{}).then(result => {
+			
+		var guideEventsStr = JSON.stringify(result);
+		setGuideText(guideEventsStr);
+		}).catch(err => {
+			log('getService Error '+ err)
+		});
+	}
+	
+	function onChSelected() {}
+
+ function fullscreen(enable) {
+  var videoWindowElement = document.getElementById("vidWindow");
+  if(enable)
+  {
+	  SetRectangle(0.0,0.0,1.0,1.0);
+  }
+  else
+  {
+	  SetRectangle(0.6,0.0,0.4,0.4);
+  }
+ }
+ 
+ function update() {
+ var element = document.getElementById("myprogressBar");
+ var width = 1;
+ var identity = setInterval(scene, 10);
+ function scene() {
+  if (width >= 100) {
+   clearInterval(identity);
+  } else {
+   width++;
+   element.style.width = width + '%';
+   element.innerHTML = width * 1 + '%';
+  }
+ }
+}
+
+function setProgressBarValue(value)
+{
+	var element = document.getElementById("myprogressBar");
+	element.style.width = value + '%';
+	element.innerHTML = value * 1 + '%';
+}
+
+function SetRectangle( pctx, pcty, pctw, pcth )
+{
+	var graphics_width  = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+	var graphics_height = window.innerHeight|| document.documentElement.clientHeight|| document.body.clientHeight;
+	console.log("window width=" + graphics_width + ", height=" + graphics_height);
+	
+	var x = Math.floor(pctx*graphics_width);
+	var w = Math.floor(pctw*graphics_width);
+	var y = Math.floor(pcty*graphics_height);
+	var h = Math.floor(pcth*graphics_height);
+	
+	var videoWindowElement = document.getElementById("vidWindow");
+	videoWindowElement.style['height'] = h;
+	videoWindowElement.style['width'] = w;
+	videoWindowElement.style['top'] =  y;
+	videoWindowElement.style['left'] = x;
+
+	console.log( "holepunch: x=" + x + ",y=" + y + ",w="+ w + ",h=" + h);
+	//tc.call("org.rdk.MediaPlayer", "setVideoRectangle", {"id":"MainPlayer","x":x,"y":y,"w":w,"h":h,"meta":{"resWidth":graphics_width,"resHeight":graphics_height}} );
+	
+	if( aampPlayer )
+	{
+		aampPlayer.setVideoRect(x,y,w,h);
+	}
+}
+
+	window.onload = function()
+	{
+
+		//window.resizeBy(1280,720);
+		SetRectangle(0.6,0.5,0.3,0.3)
+		totalChannels = 0;
+		isPlaying = false;
+		
+		try
+		{
+			if( AAMPMediaPlayer )
+			{
+				fromPC = false;
+			}
+		}
+		catch( e )
+		{
+			fromPC = true;
+		}
+
+		if(urls) {
+			// Iteratively adding all the options to videoURLs
+			for (var iter = 0; iter < urls.length; iter++)
+			{
+				var option = document.createElement("option");
+				// Replace http/https with aamp at runtime
+				//if(urls[iter].url.startsWith("https"))
+				//{
+				//	option.value = urls[iter].url.replace(/^https:\/\//i, 'aamps://');
+				//}
+				//else if(urls[iter].url.startsWith("http"))
+				//{
+				//	option.value = urls[iter].url.replace(/^http:\/\//i, 'aamp://');
+				//}
+				//else
+				{
+					option.value = urls[iter].url;
+				}
+				option.text = urls[iter].name;
+				videoURLs.add(option);
+			}
+		}
+			
+		CollectButtons();
+		Connect();
+		Activate('org.rdk.MediaServices');
+		Activate('org.rdk.MediaPlayer');
+		Activate('org.rdk.MediaGuide');
+		registerOnScanProgress();
+		registerOnScanAction();
+		//registerOnPlayerStatus();
+		getAllServices();
+
+	}
+
+var focusIndex;
+var navElements;
+var bFullScreen = false;
+
+function Blur()
+{
+	navElements[focusIndex].blur();
+}
+function Focus()
+{
+	navElements[focusIndex].focus();
+}
+function CollectButtons()
+{
+	navElements = document.querySelectorAll( "select,input" );//document.getElementsByTagName("select");
+	focusIndex = 0;
+	Focus();
+}
+//ch down 34
+// ch up 33
+// vol down - 174, up - 175
+//playpause - 179
+//red - 69
+//green - 8
+// yellow - 77
+// 0 - 48, 1 - 49 , 2 - 50 , 8 - 56 9 - 57
+// red big record - 118
+// search 114
+// info 120
+//? 113
+//volume - 173
+window.onkeydown = function(elt)
+{
+	var keyCode = elt.keyCode || elt.which;
+	//setGuideText('keyCode:' + keyCode);
+	switch( keyCode )
+	{
+		case 65:
+		case 118: // big red record button
+		{
+			if(bFullScreen)
+			{
+				bFullScreen = false;
+			}
+			else
+			{
+				bFullScreen = true;
+			}
+			// todo: replace with use of SetRectangle helper function
+			fullscreen(bFullScreen);
+		}
+		break;
+		case 37: // left
+		if( focusIndex>0 )
+		{
+			Blur();
+			focusIndex--;
+			Focus();
+		}
+		break;
+		
+		case 39: // right
+		if( focusIndex<navElements.length-1 )
+		{
+			Blur();
+			focusIndex++;
+			Focus();
+		}
+		break;
+		
+		//down - 174, up - 175
+		
+		case 40: // down
+			var chMapElement = document.getElementById("chMap");
+			if(chMapElement.selectedIndex == chMapElement.length - 1) {
+				// if kepressed down while being on the last channel in the list
+				document.getElementById("chMap").selectedIndex = 0;
+				listRotate = 0;
+			} else {
+				listRotate = -1;
+			}
+			break;
+			
+		case 38: // up
+		var chMapElement = document.getElementById("chMap");
+			if(chMapElement.selectedIndex == 0) {
+				// if kepressed up while being on the first channel in the list
+				document.getElementById("chMap").selectedIndex = chMapElement.length-1;
+				listRotate = chMapElement.length-1;
+			} else {
+				listRotate = -1;
+			}
+			break;
+
+		//case 33: // ch up
+		case 175: // volume up
+			//channelUp(true);
+			break;
+		
+		//case 34: // ch down
+		case 174: // volume down
+			//channelDown(true);
+			break;
+		
+		case 13: // return
+		case 32: // space
+		if( focusIndex == 0 )
+		{
+			playChannel();
+		}
+		//log("focus index: " + focusIndex);
+		//log("elem: " +navElements[focusIndex].id);
+		if(navElements[focusIndex].id == "videoURLs")
+		{
+			playChannelFromURL();
+		}
+		break;
+	}
+}
+function playerLoad(url) {
+	tc.call("org.rdk.MediaPlayer","create",{"id":"main"});
+	tc.call("org.rdk.MediaPlayer","load",{"id":"main","url":url});
+}
+function playChannel()
+{
+	clearTextMapList();
+
+	clearAudioMapList();
+	var chMapElement = document.getElementById("chMap");
+	var strLocator = chMapElement.options[chMapElement.selectedIndex].value;
+	var strData = chMapElement.options[chMapElement.selectedIndex].text;
+	setCurrentPlayingChText(strData);
+	
+	//setGuideText(strData);
+	if(fromPC)
+	{
+		playerLoad(strLocator);
+	}
+	else
+	{
+		if(aampPlayer == null)
+		{
+			aampPlayer = new AAMPMediaPlayer();
+			aampPlayer.addEventListener("playbackStateChanged", playbackStateChanged, null);;
+			 aampPlayer.addEventListener("mediaMetadata", mediaMetadataParsed,null);
+			aampPlayer.addEventListener("playbackStarted", playbackStarted, null);;
+			aampPlayer.addEventListener("blocked", blockedEventHandler, null);;
+			aampPlayer.addEventListener("bitrateChanged", bitrateChangedEventHandler, null);;
+		}
+		if(enableNativeCC === true) {
+			aampPlayer.initConfig(ccInitConfigParam);
+			console.log("Using  ccInitConfigParam");
+		}
+		clog("playChannel:"+strLocator);
+		aampPlayer.load(strLocator);
+		//aampPlayer.load(strLocator, true, {"contentType":"OTA"});
+
+	}
+	isPlaying = true;
+}
+
+function playChannelFromURL()
+{
+	var strLocator = document.getElementById("videoURLs").value;
+
+	clearConsole();
+	log("strLocator " + strLocator);
+
+	setCurrentPlayingChText(strLocator);
+
+	//setGuideText(strData);
+
+	if(fromPC)
+	{
+		playerLoad(strLocator);
+	}
+	else
+	{
+		if(aampPlayer == null)
+		{
+			aampPlayer = new AAMPMediaPlayer();
+			aampPlayer.addEventListener("playbackStateChanged", playbackStateChanged, null);
+		}
+		if(enableNativeCC === true) {
+			aampPlayer.initConfig(ccInitConfigParam);
+		}
+		log("aampPlayer load " + strLocator);
+		aampPlayer.load(strLocator);
+	}
+	isPlaying = true;
+}
+
+function playHdmiin(url)
+{
+        if(fromPC)
+        {
+                //no option for hdmiin
+        }
+        else
+        {
+                if(aampPlayer == null)
+                {
+                        aampPlayer = new AAMPMediaPlayer();
+                        aampPlayer.addEventListener("playbackStateChanged", playbackStateChanged, null);
+                        aampPlayer.addEventListener("playbackStarted", playbackStarted, null);;
+						 aampPlayer.addEventListener("mediaMetadata", mediaMetadataParsed,null);
+                        aampPlayer.addEventListener("blocked", blockedEventHandler, null);;
+                        aampPlayer.addEventListener("bitrateChanged", bitrateChangedEventHandler, null);;
+	
+                }
+				clog("VideoIN:"+url);
+                aampPlayer.load(url);
+        }
+}
+
+function toggleVistoggleVis(divId) {
+	var div=document.getElementById(divId);
+	setGuideText('toggleVistoggleVis');
+	if (div.style.display === "none") {
+		div.style.display = "block";
+			setGuideText('display_none:' + div.style.display);
+	} else {
+		div.style.display = "none";
+		setGuideText('display:' + div.style.display);
+	}
+}
+
+function onChannelMapNav()
+{
+	if(listRotate!=-1) {
+		// switch the index if the change is happening on the last and final elements of the list
+		document.getElementById("chMap").selectedIndex = listRotate;
+	}
+
+	// automatically start channel playback on navigation
+	playChannel();
+}
+
+/**
+ * Sets the Audio Language
+ */
+function SetPreferredLanguages(languageListInitConfig) {
+
+var chMapElement = document.getElementById("chMap");
+    var strLocator = chMapElement.options[chMapElement.selectedIndex].value;
+	var strData = chMapElement.options[chMapElement.selectedIndex].text;
+	setCurrentPlayingChText(strData);
+	
+		if( aampPlayer )
+		{
+		// this is hack as setting pref lang is hangging . hence stoping and creating new with 
+// init config
+			aampPlayer.stop(); // needed for AMLOGIC-550 workaround?
+		}
+		
+		aampPlayer = new AAMPMediaPlayer();
+		aampPlayer.initConfig(languageListInitConfig);
+		aampPlayer.addEventListener("playbackStateChanged", playbackStateChanged, null);;
+		aampPlayer.addEventListener("playbackStarted", playbackStarted, null);;
+		 aampPlayer.addEventListener("mediaMetadata", mediaMetadataParsed,null);
+		aampPlayer.addEventListener("blocked", blockedEventHandler, null);;
+		aampPlayer.addEventListener("bitrateChanged", bitrateChangedEventHandler, null);;
+		clog("Tuning:"+strLocator);
+		aampPlayer.load(strLocator);
+		//aampPlayer.load(strLocator, true, {"contentType":"OTA"});
+	
+	isPlaying = true;
+}
+/**
+ * Gets the current Audio Track
+ */
+function getAudioTrack() {
+	var audioTrack = aampPlayer.getAudioTrack();
+	console.log("Invoked getAudioTrack " +audioTrack);
+	setGuideText("Invoked getAudioTrack " +audioTrack);
+}
+
+/*For browser testing without box*/
+function _getAvailableAudioTracks() {
+    var _avlAudioTracks =  [{
+                "name": "16",
+                "language":     "eng",
+                "codec":        "AC3",
+                "rendition":    "NORMAL"
+        }, {
+                "name": "17",
+                "language":     "spa",
+                "codec":        "AC3",
+                "rendition":    "NORMAL"
+        }];
+    return _avlAudioTracks;
+}
+
+function clearAudioList() {
+	var audioListElement = document.getElementById("AudioList");
+	// when length is 0, the evaluation will return false.
+	while (audioListElement.options.length)
+	{
+		// continue to remove the first option until no options remain.
+		audioListElement.remove(0);
+	}
+}
+
+/**
+ * Get available audio track info
+ */
+function getAvailableAudioTracks() {
+	//var avlAudioTracks = _getAvailableAudioTracks();
+	var audioListBox = document.getElementById("AudioList");
+
+	var avlAudioTracks = aampPlayer.getAvailableAudioTracks();
+	if(avlAudioTracks != undefined)
+	{
+		var textTrackList = JSON.parse(avlAudioTracks);
+		console.log("Invoked getAvailableAudioTracks " +avlAudioTracks);
+		setGuideText("Invoked getAvailableAudioTracks " +avlAudioTracks);
+		clearAudioList();
+		for (var i in textTrackList) {
+			var strData = textTrackList[i].language;
+			var opt = document.createElement('option');
+			opt.text = strData + " " +textTrackList[i].codec;
+			opt.lang = strData;
+			opt.value = i;
+			console.log("Invoked getAvailableAudioTracks loop: " +opt.text);
+	
+			audioListBox.add(opt,null);
+		}
+	}
+}
+
+/**
+ * Sets the Audio Language
+ */
+function setAudioLanguage() {
+	var audioListElement = document.getElementById("AudioList");
+	var language = audioListElement.options[audioListElement.selectedIndex].lang;
+	console.log("Invoked setAudioLanguage with language " +language);
+	aampPlayer.setAudioLanguage(language);
+}
+
+/**
+ * Sets the Audio Volume
+ */
+function setAudioVolume(volume) {
+		aampPlayer.setVolume(volume);
+		console.log("Invoked setVolume :" +volume);
+		setGuideText("Invoked 1 setVolume :" +volume);
+}
+
+/**
+ * Sets the Video Mute
+ */
+function setVideoMute(muteVal) {
+    if( muteVal == 0 )
+	{
+		aampPlayer.setVideoMute(false);
+		console.log("Invoked SetVideoMute FALSE");
+		setGuideText("Invoked SetVideoMute FALSE");
+	}
+	else
+	{
+		aampPlayer.setVideoMute(true);
+		console.log("Invoked SetVideoMute TRUE");
+		setGuideText("Invoked SetVideoMute TRUE");
+	}
+}
+
+/**
+ * Sets audio track
+ */
+function setAudioTrack() {
+	var audioListElement = document.getElementById("AudioList");
+	var track = audioListElement.options[audioListElement.selectedIndex].value;
+	console.log("Invoked setAudioTrack with track " +track);
+	aampPlayer.setAudioTrack(track);
+}
+
+/**
+ * Sets AD on/off
+ */
+function setADstatus(status) {
+    if( status == 0 )
+        {
+                aampPlayer.setPreferredAudioLanguage("eng", "NORMAL");
+                console.log("Invoked with setPreferredAudioLanguage with eng,NORMAL");
+                setGuideText("Invoked with setPreferredAudioLanguage with eng,NORMAL");
+        }
+        else
+        {
+                aampPlayer.setPreferredAudioLanguage("fre,spa", "VISUALLY_IMPAIRED");
+                console.log("Invoked with setPreferredAudioLanguage with fre,spa,VISUALLY_IMPAIRED");
+                setGuideText("Invoked with setPreferredAudioLanguage with fre,spa,VISUALLY_IMPAIRED");
+        }
+}
+
+/**
+ * Toggle CC ON-OFF status
+ */
+function toggleCC() {
+	if (ccStatus === false) {
+		// CC ON
+		if(enableNativeCC) {
+			console.log("Invoking setClosedCaptionStatus-true");
+			aampPlayer.setClosedCaptionStatus(true);
+			setGuideText("setClosedCaptionStatus==> true ");
+		}
+		ccStatus = true;
+		console.log("Invoked setClosedCaptionStatus-true");
+	} else {
+		// CC OFF
+		if(enableNativeCC) {
+			console.log("Invoking setClosedCaptionStatus-false");
+						setGuideText("setClosedCaptionStatus==> False ");
+			aampPlayer.setClosedCaptionStatus(false);
+		}
+		ccStatus = false;
+		console.log("Invoked setClosedCaptionStatus-false");
+	}
+};
+
+function clearTextList() {
+	var textListElement = document.getElementById("TextList");
+	// when length is 0, the evaluation will return false.
+	while (textListElement.options.length)
+	{
+		// continue to remove the first option until no options remain.
+		textListElement.remove(0);
+	}
+}
+/**
+ * Get available text track info
+ */
+function getAvailableTextTracks() {
+	var textListBox = document.getElementById("TextList");
+	console.log("Invoking getAvailableTextTracks ");
+	var avlTextTracks = aampPlayer.getAvailableTextTracks();
+	if(avlTextTracks != undefined)
+	{
+		var textTrackList = JSON.parse(avlTextTracks);
+		console.log("Invoked getAvailableTextTracks " +avlTextTracks);
+		setGuideText("Invoked getAvailableTextTracks " +avlTextTracks);
+		clearTextList();
+		for (var i in textTrackList) {
+			var strData = textTrackList[i].language;
+			var opt = document.createElement('option');
+			opt.text = strData + ":" + textTrackList[i].instreamId;
+			opt.lang = strData;
+			opt.value = i;
+			console.log("Invoked getAvailableTextTracks loop: " +opt.text);
+
+			textListBox.add(opt,null);
+		}
+	}
+}
+
+/**
+ * Sets the Text Track
+ */
+function setTextTrack() {
+	var textListElement = document.getElementById("TextList");
+	console.log("Identifying user option for text track ");
+	var track = textListElement.options[textListElement.selectedIndex].value;
+	aampPlayer.setTextTrack(track);
+	console.log("Invoked setTextTrack with track " +track);
+}
+
+/**
+ * Gets the current Text Track
+ */
+function getTextTrack() {
+	var textTrack = aampPlayer.getTextTrack();
+	console.log("Invoked getTextTrack " +textTrack);
+	setGuideText("Invoked getAudioTrack " +textTrack);
+}
+
+/**
+ * Gets the current Text Style Options
+ */
+function getTextStyleOptions() {
+	if ((enableNativeCC) && (ccStatus === true)) {
+		var currentTextStyle = aampPlayer.getTextStyleOptions();
+		console.log("Invoked getTextStyleOptions, current options :" + currentTextStyle);
+		setGuideText("Invoked getTextStyleOptions, current options :" + currentTextStyle);
+	}
+}
+
+/**
+ * Change the Text Style Options
+ */
+function setTextStyleOptions() {
+	var styleOption =  document.getElementById("ccStyles").selectedIndex; // get selected cc track
+	if ((enableNativeCC) && (ccStatus === true)) {
+		//if CC is enabled
+		switch(styleOption) {
+			case 0:
+				aampPlayer.setTextStyleOptions(JSON.stringify(ccOption1));
+				console.log("Invoked setTextStyleOptions with options " +JSON.stringify(ccOption1));
+				break;
+			case 1:
+				aampPlayer.setTextStyleOptions(JSON.stringify(ccOption2));
+				console.log("Invoked setTextStyleOptions with options " +JSON.stringify(ccOption2));
+					break;
+			case 2:
+				aampPlayer.setTextStyleOptions(JSON.stringify(ccOption3));
+				console.log("Invoked setTextStyleOptions with options " +JSON.stringify(ccOption3));
+				break;
+		}
+		console.log("Current closed caption style is :" + aampPlayer.getTextStyleOptions());
+	}
+}
+
+function disableContentRestrictionsTimeout() {
+	var until = {"time":120};
+	aampPlayer.disableContentRestrictions(until);
+	console.log("Invoked disableContentRestrictions with timeout: " + JSON.stringify(until));
+}
+
+function disableContentRestrictionsProgramChange() {
+	var until = {"programChange":true};
+	aampPlayer.disableContentRestrictions(until);
+	console.log("Invoked disableContentRestrictions until program change");
+}
+
+function disableContentRestrictionsBoth() {
+	var until = {"programChange":true, "time":30};
+	aampPlayer.disableContentRestrictions(until);
+	console.log("Invoked disableContentRestrictions with both");
+}
+
+function disableContentRestrictions() {
+	aampPlayer.disableContentRestrictions();
+	console.log("Invoked disableContentRestrictions until reboot");
+}
+
+function enableContentRestrictions() {
+	aampPlayer.enableContentRestrictions();
+	console.log("Invoked enableContentRestrictions");
+}
+
+var playerStatesEnum = { "idle":0, "initializing":1, "initialized":2, "preparing":3, "prepared":4, "playing":8, "paused":6, "seeking":7, "complete":11, "error":12, "blocked":14};
+function playbackStateChanged(event) {
+    log("Playback state changed event: " + JSON.stringify(event));
+    switch (event.state) {
+        case playerStatesEnum.idle:
+            playerState = playerStatesEnum.idle;
+            break;
+        case playerStatesEnum.initializing:
+            playerState = playerStatesEnum.initializing;
+            break;
+        case playerStatesEnum.initialized:
+            playerState = playerStatesEnum.initialized;
+            break;
+        case playerStatesEnum.preparing:
+            playerState = playerStatesEnum.preparing;
+            break;
+        case playerStatesEnum.prepared:
+            playerState = playerStatesEnum.prepared;
+            break;
+        case playerStatesEnum.playing:
+            playerState = playerStatesEnum.playing;
+            break;
+        case playerStatesEnum.complete:
+            playerState = playerStatesEnum.complete;
+            break;
+        case playerStatesEnum.error:
+            playerState = playerStatesEnum.error;
+            break;
+        case playerStatesEnum.blocked:
+            playerState = playerStatesEnum.blocked;
+            break;
+        default:
+            playerState = event.state;
+            console.log("State not expected");
+            break;
+        }
+        var evetStr = "Player state is: " + playerState;
+        console.log(evetStr);
+
+       // log(evetStr);
+}
+
+function playbackStarted() {
+    console.log("Playback started event received");
+	log("Playback started event received");
+}
+
+function mediaMetadataParsed(event) {
+	clog("Media metadata event: " + JSON.stringify(event));
+}
+
+function blockedEventHandler(event) {
+	clog("Blocked event: " + JSON.stringify(event));
+}
+
+function bitrateChangedEventHandler(event) {
+ 	clog("Bitrate changed  event: " + JSON.stringify(event));
+}
+
+</script>
+</head>
+	
+<body bgcolor = "#FFFFCC" text = "#000000" topmargin="50" leftmargin="100">
+	<div id="videoContainer">
+		<video id="vidWindow" style="height:40%; width:40%; position:absolute; top:50; left:500">
+			<source src="dummy.mp4" type="video/ave"> <!-- hole punching -->
+		</video>
+	</div>
+	
+	<div id="content">
+		<select id = "chMap" size="10" onchange="onChannelMapNav();"></select>
+
+		<input type="button" value="startScan" onclick="startScan();"/>
+		<input type="button" value="abortScan" onclick="abortScan();"/>
+		<input type="button" value="RefreshChannelMap" onclick="getAllServices();"/>
+		<input type="button" value="getAllGuideEvents" onclick="getAllGuideEvents();"/>
+
+		<input type="button" value="composite_in" onclick="playHdmiin(compositein);"/>
+		<input type="button" value="hdmiin1" onclick="playHdmiin(hdmiin1);"/>
+		<input type="button" value="hdmiin2" onclick="playHdmiin(hdmiin2);"/>
+		<input type="button" value="directTune" onclick="directTune();"/>
+		<input type="button" value="full" onclick="SetRectangle(0,0,1,1);"/>
+		<input type="button" value="TR" onclick="SetRectangle(0.5,0,0.5,0.5);"/>
+		<input type="button" value="TL" onclick="SetRectangle(0.0,0,0.5,0.5);"/>
+		<input type="button" value="BL" onclick="SetRectangle(0.0,0.5,0.5,0.5);"/>
+		<input type="button" value="BR" onclick="SetRectangle(0.5,0.5,0.5,0.5);"/>
+
+		<select id="videoURLs" size="3"/></select>
+		
+		<br/>
+
+		<input type="button" value="GetTrack" onclick="getAudioTrack();"/>
+		<input type="button" value="GetAvlTracks" onclick="getAvailableAudioTracks();"/>
+		<select id = "AudioList" size="3"></select>
+		<input type="button" value="SetAudLan" onclick="setAudioLanguage();"/>
+		<input type="button" value="SetAudTrack" onclick="setAudioTrack();"/>
+		
+		<!-- <input type="button" value="Preferred-Eng" onclick="SetPreferredLanguages(`eng`);"/> -->
+		<input type="button" value="Preferred-Eng,Spa" onclick="SetPreferredLanguages(en_spaInitConfig);"/>
+		<input type="button" value="Preferred-Spa,Eng" onclick="SetPreferredLanguages(spa_enInitConfig);"/>
+		<input type="button" value="AD-ON" onclick="setADstatus(1);"/>
+		<input type="button" value="AD-OFF" onclick="setADstatus(0);"/>
+
+		<input type="button" value="ipVM-ON" onclick="setVideoMute(1);"/>
+		<input type="button" value="ipVM-OFF" onclick="setVideoMute(0);"/>
+		<input type="button" value="ipAM-ON" onclick="setAudioVolume(0);"/>
+		<input type="button" value="ipAM-OFF" onclick="setAudioVolume(50);"/>
+		<input type="button" value="ipA-FULLVOL" onclick="setAudioVolume(100);"/>
+		
+		<br/>
+
+		<input type="button" value="CC" onclick="toggleCC();"/>
+		<input type="button" value="GetAvlTextTracks" onclick="getAvailableTextTracks();"/>
+		<select id = "TextList" size="3"></select>
+		<input type="button" value="SetTextTrack" onclick="setTextTrack();"/>
+		<input type="button" value="GetTextTrack" onclick="getTextTrack();"/>
+
+		<select id="ccStyles" size="3">
+			<option>Option 1</option>
+			<option>Option 2</option>
+			<option>Option 3</option>
+		</select>
+		<input type="button" value="SetTextStyleOptions" onclick="setTextStyleOptions();"/>
+		<input type="button" value="GetTextStyleOptions" onclick="getTextStyleOptions();"/>
+
+		<br/>
+		<input type="button" value="disableContentRestrictions-120s" onclick="disableContentRestrictionsTimeout();"/>
+		<input type="button" value="disableContentRestrictions-pc" onclick="disableContentRestrictionsProgramChange();"/>
+		<input type="button" value="both" onclick="disableContentRestrictionsBoth();"/>
+		<input type="button" value="disableContentRestrictions-reboot" onclick="disableContentRestrictions();"/>
+		<input type="button" value="enableContentRestrictions" onclick="enableContentRestrictions();"/>
+		<br/>
+
+		<!-- <input type="button" value="startGuideScan" onclick="startGuideScan();"</input>
+		<input type="button" value="abortGuideScan" onclick="startGuideScan();"</input> -->
+
+		<br/>
+		<b>Total Channels:</b><label id="chcountLabel"></label>
+		<b> Tuned:</b> <label id = "currChSelLabel"></label>
+		<br/>
+		<div id="myprogressBar">1%</div>
+		<textarea rows="12" cols="100" id="console" style="border:solid 1px orange;"></textarea>
+		<br/>
+		<b>Guide Data</b>
+		<br/>
+		<textarea rows="12" cols="100" id="guideText" style="border:solid 1px orange;"></textarea>
+		<br/>
+		<b>Use red record key to toggle fullscreen mode</b>
+	</div>
+	</body>
+</html>

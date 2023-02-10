@@ -1,1 +1,1 @@
-# aamp
+# AAMP STYLING
