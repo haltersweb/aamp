@@ -8,9 +8,16 @@ body {
     font-family: XfinityStandard, sans-serif;
 }
 
+/* TEMP HIDE */
+#audioTracks,
+#ccTracks,
+#videoURLs {
+    display: none;
+}
+
 .button img,
 #playerType,
-#ccStyles,
+/* #ccStyles, */
 #cacheOnly,
 #cacheOnlyButton,
 #seekState,
@@ -24,7 +31,8 @@ body {
 #homeButton,
 #okButton,
 #audioTitle,
-#ccTitle {
+#ccTitle,
+#ccButton {
     display: none;
 }
 
@@ -161,11 +169,11 @@ body {
     font-weight: bold;
 }
 
-#ccButton {
+#ccBtn {
     left: 20vw;
 }
 
-#ccButton::before {
+#ccBtn::before {
     content: "CC";
     position: absolute;
     left: 0.75rem;
@@ -176,7 +184,8 @@ body {
     font-weight: bold;
 }
 
-#x1_overlay_bknd {
+#x1_overlay_bknd,
+#x1_selection_bknd {
     background-image: linear-gradient(to top, rgba(0,0,0,.95), rgba(0,0,0,0));
     width: 100vw;
     height: 100vh;
@@ -185,6 +194,11 @@ body {
     top: 0;
     box-sizing: border-box;
     z-index: -1;
+}
+
+#x1_selection_bknd {
+    background-image: linear-gradient(to right, rgba(0,0,0,.95), rgba(0,0,0,.2));
+    z-index: 10;
 }
 
 #seekBarOuter {
@@ -216,5 +230,32 @@ body {
     border-radius: 0.5rem;
     background-color: white;
 }
+
+select {
+    position: absolute;
+    left: 3em;
+    top: 3em;
+    z-index: 100;
+    background-color: transparent;
+    border: none;
+    color: white;
+}
+
+select[size="1"],
+#ccStyles[size="1"] + #x1_selection_bknd {
+    display: none;
+}
+
+option {
+    padding: 1rem;
+    background-color: transparent;
+    border-radius: 0.3rem;
+}
+
+option:checked {
+    background-color: gray;
+    color: white;
+}
+
 
 

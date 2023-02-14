@@ -366,6 +366,13 @@ var HTML5PlayerControls = function() {
         this.currentObj = this.playButton;
         this.components = [this.playButton, this.videoToggleButton, this.rwdButton, this.skipBwdButton, this.skipFwdButton, this.fwdButton, this.muteButton, this.ccButton, this.audioTracksList, this.ccTracksList, this.ccStylesList, this.cacheOnlyButton, this.videoFileList, this.autoSeekButton, this.jumpPositionInput, this.jumpButton, this.autoVideoLogButton, this.metadataLogButton, this.homeContentButton];
         this.currentPos = 0;
+/*
+
+        this.currentObj = this.playButton;
+        this.components = [this.adButton, this.sapButton, this.ccBtn, this.rwdButton, this.playButton, this.fwdButton];
+        this.currentPos = 4;
+*/
+
         this.dropDownListVisible = false;
         this.audioListVisible = false;
         this.ccListVisible = false;
@@ -949,5 +956,6 @@ function initPlayerControls() {
             option.text = urls[iter].name;
             videoURLs.add(option);
         }
+        // ADINA TO DO: ADD OPTIONS TO GRAPHICAL VERSION OF OPTIONS
     }
 };
