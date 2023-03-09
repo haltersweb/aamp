@@ -369,7 +369,7 @@ var HTML5PlayerControls = function() {
 /*
 
         this.currentObj = this.playButton;
-        this.components = [this.adButton, this.sapButton, this.ccBtn, this.rwdButton, this.playButton, this.fwdButton];
+        this.components = [this.adExpander, this.sapExpander, this.ccExpander, this.rwdButton, this.playButton, this.fwdButton];
         this.currentPos = 4;
 */
 

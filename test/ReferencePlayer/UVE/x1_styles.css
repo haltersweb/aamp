@@ -2,10 +2,14 @@ body {
     margin: 0;
     padding: 0;
     background-color: #000;
-    background-image: url("cocomelon.png");
+    /* background-image: url("cocomelon.png"); */
     background-repeat: no-repeat;
     background-size: cover;
     font-family: XfinityStandard, sans-serif;
+}
+
+.adina_added {
+    /* this is just a marker for my HTML changes */
 }
 
 /* TEMP HIDE */
@@ -139,11 +143,11 @@ body {
     border-left-color: white;
 }
 
-#adButton {
+#adExpander {
     left: 9vw;
 }
 
-#adButton::before {
+#adExpander::before {
     content: "AD";
     position: absolute;
     left: 0.7rem;
@@ -154,11 +158,11 @@ body {
     font-weight: bold;
 }
 
-#sapButton {
+#sapExpander {
     left: 14.5vw;
 }
 
-#sapButton::before {
+#sapExpander::before {
     content: "SAP";
     position: absolute;
     left: 0.5rem;
@@ -169,11 +173,11 @@ body {
     font-weight: bold;
 }
 
-#ccBtn {
+#ccExpander {
     left: 20vw;
 }
 
-#ccBtn::before {
+#ccExpander::before {
     content: "CC";
     position: absolute;
     left: 0.75rem;
