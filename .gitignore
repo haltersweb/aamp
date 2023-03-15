@@ -1,3 +1,10 @@
+# RDK
+oe-*
+/build/
+nbproject/
+test/utests/build/
+
+# MINE
 .DS_Store
 .git
 .vscode

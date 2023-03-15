@@ -151,12 +151,12 @@ typedef enum
 	eAAMPConfig_MidFragmentSeek,                                            /**< Enable/Disable the Mid-Fragment seek functionality in aamp.*/
 	eAAMPConfig_PropogateURIParam,						/**< Feature where top-level manifest URI parameters included when downloading fragments*/
 	eAAMPConfig_UseWesterosSink, 						/**< Enable/Disable player to use westeros sink based video decoding */
-	eAAMPConfig_EnableLinearSimulator,					/**< Enable linear simulator for testing purpose, simulate VOD asset as a "virtual linear" stream.*/
 	eAAMPConfig_RetuneForUnpairDiscontinuity,				/**< disable unpaired discontinuity retun functionality*/
 	eAAMPConfig_RetuneForGSTError,						/**< disable retune mitigation for gst pipeline internal data stream error*/
 	eAAMPConfig_MatchBaseUrl,						/**< Enable host of main url will be matched with host of base url*/
 	eAAMPConfig_WifiCurlHeader,
 	eAAMPConfig_EnableSeekRange,						/**< Enable seekable range reporting via progress events */
+	eAAMPConfig_EnableLiveLatencyCorrection,            /**< Enable the live latency (drift) correction by adjusting the playback speed */
 	eAAMPConfig_DashParallelFragDownload,					/**< Enable dash fragment parallel download*/
 	eAAMPConfig_PersistentBitRateOverSeek,					/**< ABR profile persistence during Seek/Trickplay/Audio switching*/
 	eAAMPConfig_SetLicenseCaching,						/**< License caching*/
@@ -193,7 +193,6 @@ typedef enum
  	eAAMPConfig_XRESupportedTune,						/**< Enable/Disable XRE supported tune*/
 	eAAMPConfig_GstSubtecEnabled,								/**< Force Gstreamer subtec */
 	eAAMPConfig_AllowPageHeaders,						/**< Allow page http headers*/
-	eAAMPConfig_SuppressDecode,						/**< To Suppress Decode of segments for playback . Test only Downloader */
 	eAAMPConfig_PersistHighNetworkBandwidth,				/** Flag to enable Persist High Network Bandwidth across Tunes */
 	eAAMPConfig_PersistLowNetworkBandwidth,					/** Flag to enable Persist Low Network Bandwidth across Tunes */
 	eAAMPConfig_ChangeTrackWithoutRetune,					/**< Flag to enable audio track change without disturbing video pipeline */
@@ -204,8 +203,8 @@ typedef enum
 	eAAMPConfig_EnableSlowMotion,					/**< Enable/Disable Slowmotion playback */
 	eAAMPConfig_EnableSCTE35PresentationTime,			/**< Enable/Disable use of SCTE PTS presentation time */
 	eAAMPConfig_JsInfoLogging,						/**< Enable/disable jsinfo logging       */
-	eAAMPConfig_IgnoreAppLiveOffset,				/** <Config to ignore the liveOffset from App for LLD */
-	eAAMPConfig_useTCPServerSink,					/** <Config to enable tcpserversink */
+	eAAMPConfig_IgnoreAppLiveOffset,				/**< Config to ignore the liveOffset from App for LLD */
+	eAAMPConfig_useTCPServerSink,					/**< Route audio/video to tcpserversink, suppressing decode and presentation */
 	eAAMPConfig_enableDisconnectSignals,			/** When enabled (true which is the default) gstreamer signals are disconnected in AAMPGstPlayer::DisconnectSignals()*/
 	eAAMPConfig_enableEOSInjectionDuringStop,		/** When enabled (true which is the default) the pipeline is flushed and EOS signals injected into the pipline during AAMPGstPlayer::stop()*/						
 	eAAMPConfig_SendLicenseResponseHeaders,			/** <Config to enable adding license response headers with drm metadata event */
@@ -264,12 +263,9 @@ typedef enum
 	eAAMPConfig_FragmentDownloadFailThreshold, 				/**< Retry attempts for non-init fragment curl timeout failures*/
 	eAAMPConfig_MaxInitFragCachePerTrack,					/**< Max no of Init fragment cache per track */
 	eAAMPConfig_FogMaxConcurrentDownloads,                                  /**< Concurrent download posted to fog from player*/
-	eAAMPConfig_ContentProtectionDataUpdateTimeout,				/**< Default Timeout For ContentProtectionData Update */
+	eAAMPConfig_ContentProtectionDataUpdateTimeout,				/**< Default Timeout For ContentProtectionData Update in milliseconds */
 	eAAMPConfig_MaxCurlSockStore,						/**< Max no of curl socket to be stored */
 	eAAMPConfig_TCPServerSinkPort,						/**< TCP port number */
-	eAAMPConfig_IntMaxValue,
-	///////////////////////////////////
-	eAAMPConfig_LongStartValue,
 	eAAMPConfig_DefaultBitrate,						/**< Default bitrate*/
 	eAAMPConfig_DefaultBitrate4K,						/**< Default 4K bitrate*/
 	eAAMPConfig_IFrameDefaultBitrate,					/**< Default bitrate for iframe track selection for non-4K assets*/
@@ -278,11 +274,11 @@ typedef enum
 	eAAMPConfig_CurlDownloadStartTimeout,					/**< Timeout value for curl download to start after connect in seconds*/
 	eAAMPConfig_CurlDownloadLowBWTimeout,					/**< Timeout value for curl download expiry if player cann't catchup the selected bitrate buffer*/
 	eAAMPConfig_DiscontinuityTimeout,					/**< Timeout value to auto process pending discontinuity after detecting cache is empty*/
-	eAAMPConfig_MinBitrate, 						/**< minimum bitrate filter for playback profiles */
-	eAAMPConfig_MaxBitrate, 						/**< maximum bitrate filter for playback profiles*/
+	eAAMPConfig_MinBitrate,                         /**< minimum bitrate filter for playback profiles */
+	eAAMPConfig_MaxBitrate,                         /**< maximum bitrate filter for playback profiles*/
 	eAAMPConfig_TLSVersion,
-
-	eAAMPConfig_LongMaxValue,
+	eAAMPConfig_IntMaxValue,
+	
 	////////////////////////////////////
 	eAAMPConfig_DoubleStartValue,
 	eAAMPConfig_NetworkTimeout,						/**< Fragment download timeout in sec*/
@@ -291,9 +287,11 @@ typedef enum
 	eAAMPConfig_ReportProgressInterval,					/**< Interval of progress reporting*/
 	eAAMPConfig_PlaybackOffset,						/**< playback offset value in seconds*/
 	eAAMPConfig_LiveOffset, 						/**< Current LIVE offset*/
+	eAAMPConfig_LiveOffsetDriftCorrectionInterval,  /**< Config to ovverride the allowed live offset drift **/
 	eAAMPConfig_LiveOffset4K,						/**< Live offset for 4K content;*/
 	eAAMPConfig_CDVRLiveOffset, 						/**< CDVR LIVE offset*/
 	eAAMPConfig_DoubleMaxValue,
+	
 	////////////////////////////////////
 	eAAMPConfig_StringStartValue,
 	eAAMPConfig_MapMPD, 							/**< host name in url for which hls to mpd mapping done'*/
@@ -371,13 +369,11 @@ struct AampConfigLookupEntry
 	union
 	{
 		int iMinValue;
-		long lMinValue;
 		double dMinValue;
 	}Min;
 	union
 	{
 		int iMaxValue;
-		long lMaxValue;
 		double dMaxValue;
 	}Max;
 
@@ -418,18 +414,6 @@ typedef struct ConfigInt
 	int lastvalue;
 	ConfigInt():owner(AAMP_DEFAULT_SETTING),value(0),lastowner(AAMP_DEFAULT_SETTING),lastvalue(0){}
 }ConfigInt;
-
-/**
- * @brief AAMP Config Long data type
- */
-typedef struct ConfigLong
-{
-	ConfigPriority owner;
-	long value;
-	ConfigPriority lastowner;
-	long lastvalue;
-	ConfigLong():owner(AAMP_DEFAULT_SETTING),value(0),lastowner(AAMP_DEFAULT_SETTING),lastvalue(0){}
-}ConfigLong;
 
 /**
  * @brief AAMP Config double data type
@@ -588,6 +572,12 @@ public:
      	 * @return true / false 
      	 */
 	bool IsConfigSet(AAMPConfigSettings cfg);
+	
+	std::string GetConfigValueString( AAMPConfigSettings cfg );
+	int GetConfigValueInt( AAMPConfigSettings cfg );
+	double GetConfigValueDouble( AAMPConfigSettings cfg );
+
+	
 	/**
      	 * @fn GetConfigValue
      	 * @param[in] cfg - configuration enum
@@ -599,13 +589,7 @@ public:
      	 * @param[in] cfg - configuration enum
      	 * @param[out] value - configuration value
      	 */
-	bool GetConfigValue(AAMPConfigSettings cfg, long &value);
-	/**
-    	 * @fn GetConfigValue
-     	 * @param[in] cfg - configuration enum
-     	 * @param[out] value - configuration value
-     	 */
-	bool GetConfigValue(AAMPConfigSettings cfg, double &value);	
+	bool GetConfigValue(AAMPConfigSettings cfg, double &value);
 	/**
      	 * @fn GetConfigValue
      	 * @param[in] cfg - configuration enum
@@ -740,7 +724,6 @@ private:
 	bool customFound;
 	ConfigBool	bAampCfgValue[eAAMPConfig_BoolMaxValue];					/**< Stores bool configuration */
 	ConfigInt	iAampCfgValue[eAAMPConfig_IntMaxValue-eAAMPConfig_IntStartValue];		/**< Stores int configuration */
-	ConfigLong	lAampCfgValue[eAAMPConfig_LongMaxValue-eAAMPConfig_LongStartValue];		/**< Stores long configuration */
 	ConfigDouble 	dAampCfgValue[eAAMPConfig_DoubleMaxValue-eAAMPConfig_DoubleStartValue];		/**< Stores double configuration */
 	ConfigString	sAampCfgValue[eAAMPConfig_StringMaxValue-eAAMPConfig_StringStartValue];		/**< Stores string configuration */
 	typedef std::list<ConfigChannelInfo> ChannelMap ;

@@ -57,10 +57,8 @@
 #include "AampRfc.h"
 #include "AampEventManager.h"
 #include <HybridABRManager.h>
-static const char *mMediaFormatName[] =
-{
-    "HLS","DASH","PROGRESSIVE","HLS_MP4","OTA","HDMI_IN","COMPOSITE_IN","SMOOTH_STREAMING","UNKNOWN"
-};
+#include "AampCMCDCollector.h"
+
 
 #ifdef __APPLE__
 #define aamp_pthread_setname(tid,name) pthread_setname_np(name)
@@ -81,10 +79,12 @@ static const char *mMediaFormatName[] =
 
 #define AAMP_SEEK_TO_LIVE_POSITION (-1)
 
-#define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
 #define MANIFEST_TEMP_DATA_LENGTH 100			/**< Manifest temp data length */
 #define AAMP_LOW_BUFFER_BEFORE_RAMPDOWN 10 		/**< 10sec buffer before rampdown */
 #define AAMP_HIGH_BUFFER_BEFORE_RAMPUP  15 		/**< 15sec buffer before rampup */
+#define  AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD 3	/**< 3sec buffer befoe rampdown for lld */
+#define AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD	 5	/**< 5sec buffer before rampup for lld */
+#define TIMEOUT_FOR_LLD	3				/**< 3sec lowbw ,stall and start timeout for lld */
 
 #define AAMP_USER_AGENT_MAX_CONFIG_LEN  512    /**< Max Chars allowed in aamp.cfg for user-agent */
 #define SERVER_UTCTIME_DIRECT "urn:mpeg:dash:utc:direct:2014"
@@ -633,6 +633,21 @@ typedef struct AampUrlInfo
 	AampUrlInfo& operator=(const AampUrlInfo&) = delete;
 }AampURLInfoStruct;
 
+typedef enum
+{
+	PROFILE_BLACKLIST_DRM_FAILURE,
+	PROFILE_BLACKLIST_INIT_FAILURE
+
+} eBlacklistProfileReason;
+
+typedef struct BlacklistProfileInfo_t
+{
+	// Extend for HLS and other stream formats
+	std::string mPeriodId;
+	uint32_t mAdaptationSetIdx;
+	eBlacklistProfileReason mReason;
+} StreamBlacklistProfileInfo;
+
 /**
  * @}
  */
@@ -833,6 +848,7 @@ public:
 	pthread_mutex_t mLock;				/**< = PTHREAD_MUTEX_INITIALIZER; */
 	pthread_mutexattr_t mMutexAttr;
 	pthread_mutex_t mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
+	std::thread  mRateCorrectionThread;     /**< Rate coorection thread Id **/   
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
@@ -874,9 +890,8 @@ public:
 	bool mTSBEnabled;
 	bool mIscDVR;
 	double mLiveOffset;
+	double mLiveOffsetDrift;               /**< allowed drift value from live offset configured **/
 	long mNetworkTimeoutMs;
-	std::string mCMCDNextObjectRequest;			/**<store the next next fragment url */
-	long mCMCDBandwidth;					/**<store the audio bandwidth */
 	long mManifestTimeoutMs;
 	long mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;
@@ -1011,8 +1026,8 @@ public:
 	Accessibility  preferredAudioAccessibilityNode; 	/**< Preferred Accessibility Node for Audio  */
 	AudioTrackTuple mAudioTuple;				/**< Depricated **/
 	VideoZoomMode zoom_mode;
-	bool video_muted;
-	bool subtitles_muted;
+	bool video_muted; /**< true iff video plane is logically muted */
+	bool subtitles_muted; /**< true iff subtitle plane is logically muted */
 	int audio_volume;
 	std::vector<std::string> subscribedTags;
 	std::vector<TimedMetadata> timedMetadata;
@@ -1081,6 +1096,8 @@ public:
 	                                				in gst brcmaudiodecoder, default: True */
 	std::string mSessionToken; 				/**< Field to set session token for player */
 	bool midFragmentSeekCache;    				/**< RDK-26957: To find if cache is updated when seeked to mid fragment boundary */
+	bool mDisableRateCorrection;             /**< Disable live latency correction when user pause or seek the playback **/
+	bool mAbortRateCorrection;               /**< Flag to abort rate correction thread **/
 	bool mAutoResumeTaskPending;
 
 	std::string mTsbRecordingId; 				/**< Recording ID of current TSB */
@@ -1110,6 +1127,9 @@ public:
 
 	pthread_mutex_t  mDiscoCompleteLock; 			/**< Lock the period jump if discontinuity already in progress */
 	pthread_cond_t mWaitForDiscoToComplete; 		/**< Conditional wait for period jump */
+	std::condition_variable mRateCorrectionWait;	/**< Conditional variable for signalling timed wait for rate correction*/
+	std::mutex mRateCorrectionTimeoutLock;				/**< Rate correction thread mutex for conditional timed wait*/  
+	double mCorrectionRate;                          /**< Variable to store corection rate **/        
 	bool mIsPeriodChangeMarked; 				/**< Mark if a period change occurred */
 	bool mIsEventStreamFound;				/**< Flag to indicate event stream entry in any of period */
         
@@ -1117,7 +1137,7 @@ public:
 
 	double mOffsetFromTunetimeForSAPWorkaround; 		/**< current playback position in epoch */
 	bool mLanguageChangeInProgress;
-	long mSupportedTLSVersion;    				/**< ssl/TLS default version */
+	int mSupportedTLSVersion;    				/**< ssl/TLS default version */
 	std::string mFailureReason;   				/**< String to hold the tune failure reason  */
 	long long mTimedMetadataStartTime;			/**< Start time to report TimedMetadata   */
 	long long mTimedMetadataDuration;
@@ -1138,7 +1158,9 @@ public:
 	double mLLActualOffset;				/**< Actual Offset After Seeking in LL Mode*/
 	bool mIsStream4K;                  /**< Identify whether live playing stream is 4K or not; reset on every retune*/
 	std::string mFogDownloadFailReason; /** Identify Fog Manifest Download Failure Reason*/
+	bool mIsInbandCC;                   /** Indicate inband cc or out of band cc is selected*/
 
+	AampCMCDCollector *mCMCDCollector;
 	/**
 	 * @fn hasId3Header
 	 *
@@ -1279,7 +1301,7 @@ public:
 	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
 	 * @return void
 	 */
-	bool GetFile(std::string remoteUrl, struct GrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, long *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0,class CMCDHeaders *pCMCDMetrics = NULL);
+	bool GetFile(std::string remoteUrl, struct GrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true,MediaType fileType = eMEDIATYPE_DEFAULT, long *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
 
 	/**
 	 * @fn getUUID
@@ -1340,10 +1362,9 @@ public:
 	 * @param[in] fileType - File type
 	 * @param[out] http_code - HTTP error code
 	 * @param[out] fogError - Error from FOG
-	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
 	 * @return void
 	 */
-	bool LoadFragment(class CMCDHeaders *pCMCDMetrics,ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, struct GrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, long *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
+	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, struct GrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, MediaType fileType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, long *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
 
 	/**
 	 * @fn PushFragment
@@ -1586,6 +1607,34 @@ public:
 	 *   @return void
 	 */
 	void ReportProgress(bool sync = true, bool beginningOfStream = false);
+	/**
+	 *   @fn WakeupLatencyCheck
+	 *   @return void
+	 */
+	void WakeupLatencyCheck();
+	/**
+	 *   @fn TimedWaitForLatencyCheck
+	 *   @param [in] timeInMs - Time in milli sec 
+	 *   @return void
+	 */
+	void TimedWaitForLatencyCheck(int timeInMs);
+	/**
+	 *   @fn StartRateCorrectionWokerthread
+	 *   @return void
+	 */
+	void StartRateCorrectionWokerthread(void);
+
+	/**
+	 *   @fn StopRateCorrectionWokerthread
+	 *   @return void
+	 */
+	void StopRateCorrectionWokerthread(void);
+
+	/**
+	 *   @fn RateCorrectionWokerthread
+	 *   @return void
+	 */
+	void RateCorrectionWokerthread(void);
 
 	/**
 	 *   @fn ReportAdProgress
@@ -2237,17 +2286,6 @@ public:
 	 */
 	void SetCallbackAsDispatched(guint id);
 
-
-	/**
-	 *   @fn CollectCMCDCustomHeaders
-	 *   @brief Collect and store CMCD Headers related data
-	 *
-	 *   @param[in] fileType - Type of content.
-	 *   @param[in] pCMCDMetrics - pointer to CMCDHeaders.
-	 *   @return void
-	 */
-	void CollectCMCDCustomHeaders(MediaType fileType,class CMCDHeaders *pCMCDMetrics);
-
 	/**
 	 *   @fn AddCustomHTTPHeader
 	 *
@@ -2839,7 +2877,7 @@ public:
 	 *
 	 *   @param[in] stallTimeout curl stall timeout
 	 */
-	void SetDownloadStallTimeout(long stallTimeout);
+	void SetDownloadStallTimeout(int stallTimeout);
 
 	/**
 	 *   @brief To set the curl download start timeout value
@@ -2963,6 +3001,13 @@ public:
 	 */
 	void UpdateVideoEndMetrics(AAMPAbrInfo & info);
 
+	/**
+	 *   @fn UpdateVideoEndMetrics
+	 *
+	 *   @param[in] adjustedRate - new rate after correction
+	 *   @return void
+	 */
+	void UpdateVideoEndMetrics(double adjustedRate);
 
 	/**
 	 *   @brief To check if current asset is DASH or not
@@ -3742,12 +3787,12 @@ public:
 		return mLLDashCurrentPlayRate;
 	}
 
-	 /**
-	  *   @brief Turn off/on the player speed correction for Low latency Dash
-	  *
-	  *   @param[in] state - true or false
-	  *   @return void
-	  */
+	/**
+	 *   @brief Turn off/on the player speed correction for Low latency Dash
+	 *
+	 *   @param[in] state - true or false
+	 *   @return void
+	 */
 	void SetLLDashAdjustSpeed(bool state)
 	{
 		bLLDashAdjustPlayerSpeed = state;
@@ -3777,17 +3822,17 @@ public:
 	void SetLiveOffsetAppRequest(bool LiveOffsetAppRequest);
 
 	/**
-         *     @fn GetLowLatencyServiceConfigured
-         *     @return bool
-         */
-        bool GetLowLatencyServiceConfigured();
+	 *     @fn GetLowLatencyServiceConfigured
+	 *     @return bool
+	 */
+	bool GetLowLatencyServiceConfigured();
 
-        /**
-         *     @fn SetLowLatencyServiceConfigured
-         *     @param[in] bConfig - bool flag
-         *     @return void
-         */
-        void SetLowLatencyServiceConfigured(bool bConfig);
+	/**
+	 *     @fn SetLowLatencyServiceConfigured
+	 *     @param[in] bConfig - bool flag
+	 *     @return void
+	 */
+	void SetLowLatencyServiceConfigured(bool bConfig);
 
 	/**
 	 *     @fn GetUtcTime
@@ -3948,6 +3993,22 @@ public:
 	 */
 	void UpdateMaxDRMSessions();
 
+	/**
+	 * @brief To add profile to blacklisted profile list
+	 */
+	void AddToBlacklistedProfiles(const StreamBlacklistProfileInfo &info)
+	{
+		mBlacklistedProfiles.push_back(info);
+	}
+
+	/**
+	 * @brief To get the blacklisted profiles
+	 */
+	const std::vector<StreamBlacklistProfileInfo>& GetBlacklistedProfiles()
+	{
+		return mBlacklistedProfiles;
+	}
+
 private:
 
 	/**
@@ -4088,6 +4149,7 @@ private:
 	bool mProgressReportFromProcessDiscontinuity; /** flag dentoes if progress reporting is in execution from ProcessPendingDiscontinuity*/
 	AampEventManager *mEventManager;
 	AampCacheHandler *mAampCacheHandler;
+	
 	int mMinInitialCacheSeconds; 		/**< Minimum cached duration before playing in seconds*/
 	std::string mDrmInitData; 		/**< DRM init data from main manifest URL (if present) */
 	bool mFragmentCachingRequired; 		/**< True if fragment caching is required or ongoing */
@@ -4122,8 +4184,8 @@ private:
 	bool mApplyVideoRect; 			/**< Status to apply stored video rectagle */
 	videoRect mVideoRect;
 	std::unique_ptr<char[]> mData;
-	bool mIsInbandCC;
 	std::string mTextStyle;
+	std::vector<StreamBlacklistProfileInfo> mBlacklistedProfiles;
 };
 
 /**

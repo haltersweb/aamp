@@ -99,7 +99,6 @@ void Harvestor::masterHarvestor(void * arg)
 	std::vector<std::string> params;
 	std::stringstream ss(cmd);
 	std::string item;
-	long currentAudioBitrate = 0,currentVideoBitrate = 0,currentIFrameBitrate = 0;
 	FILE * pIframe;
 	int videoThreadId = 0;
 	int audioThreadId = 0;
@@ -120,7 +119,7 @@ void Harvestor::masterHarvestor(void * arg)
 	params.push_back("defaultBitrate=9999999");
 	params.push_back("defaultBitrate4K=9999999");
 	params.push_back("abr");
-	params.push_back("suppressDecode=true");
+	params.push_back("useTCPServerSink=true");
 
 	for(std::string param : params)
 	{
@@ -153,7 +152,7 @@ void Harvestor::masterHarvestor(void * arg)
 			iFrameCommand.append(Harvestor::exePathName);
 		}
 
-		iFrameCommand = iFrameCommand +" harvest harvestMode=Slave harvestUrl="+cmdlineParams["harvestUrl"]+" harvestCountLimit=9999999"+" harvestConfig="+std::to_string(getHarvestConfigForMedia(eMEDIATYPE_VIDEO)|getHarvestConfigForMedia(eMEDIATYPE_IFRAME)|getHarvestConfigForMedia(eMEDIATYPE_INIT_VIDEO))+" abr suppressDecode=true";
+		iFrameCommand = iFrameCommand +" harvest harvestMode=Slave harvestUrl="+cmdlineParams["harvestUrl"]+" harvestCountLimit=9999999"+" harvestConfig="+std::to_string(getHarvestConfigForMedia(eMEDIATYPE_VIDEO)|getHarvestConfigForMedia(eMEDIATYPE_IFRAME)|getHarvestConfigForMedia(eMEDIATYPE_INIT_VIDEO))+" abr useTCPServerSink=true";
 
 		if(cmdlineParams.find("harvestPath") != cmdlineParams.end())
 		{
@@ -185,9 +184,6 @@ void Harvestor::masterHarvestor(void * arg)
 			}
 
 		}
-
-		currentVideoBitrate = mHarvestor.mPlayerInstanceAamp->GetVideoBitrate();
-		currentAudioBitrate = mHarvestor.mPlayerInstanceAamp->GetAudioBitrate();
 
 		std::vector<long> cacheVideoBitrates,cacheAudioBitrates,cacheTextTracks;
 
@@ -263,7 +259,7 @@ void Harvestor::masterHarvestor(void * arg)
 						videoCommand.append(Harvestor::exePathName);
 					}
 
-					videoCommand = videoCommand +" harvest harvestMode=Slave harvestUrl="+cmdlineParams["harvestUrl"]+" harvestCountLimit=9999999"+" harvestConfig="+std::to_string(getHarvestConfigForMedia(eMEDIATYPE_VIDEO)|getHarvestConfigForMedia(eMEDIATYPE_INIT_VIDEO)|getHarvestConfigForMedia(eMEDIATYPE_LICENCE))+" abr suppressDecode=true defaultBitrate="+std::to_string(bitrate);
+					videoCommand = videoCommand +" harvest harvestMode=Slave harvestUrl="+cmdlineParams["harvestUrl"]+" harvestCountLimit=9999999"+" harvestConfig="+std::to_string(getHarvestConfigForMedia(eMEDIATYPE_VIDEO)|getHarvestConfigForMedia(eMEDIATYPE_INIT_VIDEO)|getHarvestConfigForMedia(eMEDIATYPE_LICENCE))+" abr useTCPServerSink=true defaultBitrate="+std::to_string(bitrate);
 
 					if(cmdlineParams.find("harvestPath") != cmdlineParams.end())
 					{
@@ -315,7 +311,7 @@ void Harvestor::masterHarvestor(void * arg)
                                                 audioCommand.append(Harvestor::exePathName);
                                         }
 
-                                        audioCommand = audioCommand +" harvest harvestMode=Slave harvestUrl="+cmdlineParams["harvestUrl"]+" harvestCountLimit=9999999"+" harvestConfig="+std::to_string(getHarvestConfigForMedia(eMEDIATYPE_AUDIO))+" abr suppressDecode=true defaultBitrate="+std::to_string(bitrate);
+                                        audioCommand = audioCommand +" harvest harvestMode=Slave harvestUrl="+cmdlineParams["harvestUrl"]+" harvestCountLimit=9999999"+" harvestConfig="+std::to_string(getHarvestConfigForMedia(eMEDIATYPE_AUDIO))+" abr useTCPServerSink=true defaultBitrate="+std::to_string(bitrate);
 
 					if(cmdlineParams.find("harvestPath") != cmdlineParams.end())
 					{
@@ -403,7 +399,7 @@ void Harvestor::slaveHarvestor(void * arg)
 		params.push_back(item);
 	}
 
-	params.push_back("suppressDecode=true");
+	params.push_back("useTCPServerSink=true");
 
 	for(std::string param : params)
 	{

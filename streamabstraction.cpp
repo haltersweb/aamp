@@ -119,8 +119,19 @@ const char* MediaTrack::GetBufferHealthStatusString(BufferHealthStatus status)
 BufferHealthStatus MediaTrack::GetBufferStatus()
 {
     BufferHealthStatus bStatus = BUFFER_STATUS_GREEN;
-    double bufferedTime = totalInjectedDuration - GetContext()->GetElapsedTime();
-    if ( (numberOfFragmentsCached <= 0) && (bufferedTime <= AAMP_BUFFER_MONITOR_GREEN_THRESHOLD))
+    double bufferedTime ;
+    int CachedFragmentsOrChunks;
+    if(aamp->GetLLDashServiceData()->lowLatencyMode)
+    {
+	    bufferedTime 	    = totalInjectedChunksDuration - GetContext()->GetElapsedTime();
+	    CachedFragmentsOrChunks = numberOfFragmentChunksCached ;
+    }
+    else
+    {
+	    bufferedTime 	    = totalInjectedDuration - GetContext()->GetElapsedTime();
+	    CachedFragmentsOrChunks = numberOfFragmentsCached ;
+    }
+    if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= AAMP_BUFFER_MONITOR_GREEN_THRESHOLD))
     {
         AAMPLOG_WARN("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
                 name, bufferedTime, totalInjectedDuration, GetContext()->GetElapsedTime());
@@ -140,8 +151,8 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 void MediaTrack::MonitorBufferHealth()
 {
 	int  bufferHealthMonitorDelay,bufferHealthMonitorInterval;
-	long discontinuityTimeoutValue;
-	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay,bufferHealthMonitorDelay);
+	int discontinuityTimeoutValue;
+	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorDelay,bufferHealthMonitorDelay); 
 	GETCONFIGVALUE(eAAMPConfig_BufferHealthMonitorInterval,bufferHealthMonitorInterval);
 	GETCONFIGVALUE(eAAMPConfig_DiscontinuityTimeout,discontinuityTimeoutValue);
 	assert(bufferHealthMonitorDelay >= bufferHealthMonitorInterval);
@@ -601,7 +612,7 @@ bool MediaTrack::WaitForCachedFragmentChunkAvailable()
 	}
 
 
-	ret = !(abort || abortInjectChunk);
+	ret = !(abort || abortInjectChunk|| numberOfFragmentChunksCached == 0);
 
 	AAMPLOG_TRACE("[%s] fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d ret = %d abort = %d abortInjectChunk = %d",
 			 name, fragmentChunkIdxToInject, numberOfFragmentChunksCached, ret, abort, abortInjectChunk);
@@ -1256,7 +1267,7 @@ void MediaTrack::RunInjectChunkLoop()
  */
 void MediaTrack::StopInjectLoop()
 {
-	if (fragmentInjectorThreadStarted)
+	if(fragmentInjectorThreadStarted && fragmentInjectorThreadID.joinable())
 	{
 		fragmentInjectorThreadID.join();
 #ifdef TRACE
@@ -1939,6 +1950,14 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	if(video != NULL)
 	{
+		double buffervalue = video->GetBufferedDuration();
+		if(aamp->GetLLDashServiceData()->lowLatencyMode && buffervalue < AAMP_LLDABR_MIN_BUFFER_VALUE)
+		{
+			//InsufficientBufferRule: Buffer is empty
+			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf ",buffervalue);
+			desiredProfileIndex = 0;
+			return desiredProfileIndex;
+		}
 		if (this->trickplayMode)
 		{
 			int tmpIframeProfile = GetIframeTrack();
@@ -2320,10 +2339,6 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
  */
 void StreamAbstractionAAMP::CheckForPlaybackStall(bool fragmentParsed)
 {
-	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
-	{
-		return;
-	}
 	if (fragmentParsed)
 	{
 		mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
@@ -2876,7 +2891,7 @@ void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 				{
 					AAMPLOG_WARN("Discontinuity in track:%d does not have a discontinuity in other track (diff is negative: %f, injectedDuration: %f)",
 							type, diff, otherTrackDuration);
-					isDiscontinuityPresent = otherTrack->CheckForFutureDiscontinuity(cachedDuration); // called just to get the value of cachedDuration of the track.
+					(void)otherTrack->CheckForFutureDiscontinuity(cachedDuration); // called just to get the value of cachedDuration of the track.
 					bProcessFlag = true;
 				}
 
@@ -3374,7 +3389,7 @@ void MediaTrack::PlaylistDownloader()
 						}
 						else
 						{
-							liveRefreshTimeOutInMs = MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
+							liveRefreshTimeOutInMs = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
 						}
 					}
 					else
@@ -3518,30 +3533,11 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 		long bufferAvailable = (endPositionAvailable - currentPlayPosition);
 		//Get Minimum update duration in milliseconds
 		long minUpdateDuration = GetMinUpdateDuration();
-		minDelayBetweenPlaylistUpdates = MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
 
-		// If buffer Available is > 2*minUpdateDuration
-		if(bufferAvailable  > (minUpdateDuration*2) )
+		// when target duration is high value(>Max delay)  but buffer is available just above the max update inteval,then go with max delay between playlist refresh.
+		if(bufferAvailable < (2* MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS))
 		{
-			// may be 1.0 times also can be set ???
-			minDelayBetweenPlaylistUpdates = (int)(1.5 * minUpdateDuration);
-		}
-		// if buffer is between 2*target & mMinUpdateDurationMs
-		else if(bufferAvailable  > minUpdateDuration)
-		{
-			minDelayBetweenPlaylistUpdates = (int)(0.5 * minUpdateDuration);
-		}
-		// This is to handle the case where target duration is high value(>Max delay)  but buffer is available just above the max update inteval
-		else if(bufferAvailable > (2*MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS))
-		{
-			minDelayBetweenPlaylistUpdates = MAX_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
-		}
-		// if buffer < targetDuration && buffer < MaxDelayInterval
-		else
-		{
-			// if bufferAvailable is less than targetDuration ,its in RED alert . Close to freeze
-			// need to refresh soon ..
-			if(bufferAvailable)
+			if ((minUpdateDuration > 0) && (bufferAvailable  > minUpdateDuration))
 			{
 				//1.If buffer Available is > 2*minUpdateDuration , may be 1.0 times also can be set ???
 				//2.If buffer is between 2*target & mMinUpdateDurationMs
@@ -3556,18 +3552,21 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 				}
 				minDelayBetweenPlaylistUpdates = (int)(mFactor * minUpdateDuration);
 			}
+			// if buffer < targetDuration && buffer < MaxDelayInterval
 			else
 			{
-				minDelayBetweenPlaylistUpdates = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS; // 500mSec
-			}
-			// limit the logs when buffer is low
-			{
-				static int bufferlowCnt;
-				if((bufferlowCnt++ & 5) == 0)
+				// if bufferAvailable is less than targetDuration ,its in RED alert . Close to freeze
+				// need to refresh soon ..
+				minDelayBetweenPlaylistUpdates = (bufferAvailable) ? (int)(bufferAvailable / 3) : MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS; //500ms
+				// limit the logs when buffer is low
 				{
-					AAMPLOG_WARN("Buffer is running low(%ld).Refreshing playlist(%d).PlayPosition(%lld) End(%lld)",
-						bufferAvailable,minDelayBetweenPlaylistUpdates,currentPlayPosition,endPositionAvailable);
+					static int bufferlowCnt;
+					if((bufferlowCnt++ & 5) == 0)
+					{
+						AAMPLOG_WARN("Buffer is running low(%ld).Refreshing playlist(%d).PlayPosition(%lld) End(%lld)",bufferAvailable,minDelayBetweenPlaylistUpdates,currentPlayPosition,endPositionAvailable);
+					}
 				}
+
 			}
 
 		}

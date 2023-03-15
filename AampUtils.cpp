@@ -86,6 +86,46 @@ const FormatMap mVideoFormatMap[] =
 };
 #define AAMP_VIDEO_FORMAT_MAP_LEN ARRAY_SIZE(mVideoFormatMap)
 
+double aamp_CurlEasyGetinfoDouble( CURL *handle, CURLINFO info )
+{
+	double rc = 0.0;
+	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoDouble failure" );
+	}
+	return rc;
+}
+
+int aamp_CurlEasyGetinfoInt( CURL *handle, CURLINFO info )
+{
+	int rc = 0;
+	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoInt failure" );
+	}
+	return rc;
+}
+
+long aamp_CurlEasyGetinfoLong( CURL *handle, CURLINFO info )
+{
+	long rc = -1;
+	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoLong failure" );
+	}
+	return rc;
+}
+
+char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
+{
+	char *rc = NULL;
+	if( curl_easy_getinfo(handle,info,&rc) != CURLE_OK )
+	{
+		AAMPLOG_WARN( "aamp_CurlEasyGetinfoString failure" );
+	}
+	return rc;
+}
+
 /**
  * @brief Get current time from epoch is milliseconds
  *
@@ -393,10 +433,10 @@ double ISO8601DateTimeToUTCSeconds(const char *ptr)
 		//Find out offset from utc by convering epoch
 		std::tm baseTimeObj = { 0 };
 		strptime("1970-01-01T00:00:00.", "%Y-%m-%dT%H:%M:%S.", &baseTimeObj);
-		time_t offsetFromUTC = mktime(&baseTimeObj);
+		time_t offsetFromUTC = timegm(&baseTimeObj);
 		//Convert input string to time
 		const char *msString = strptime(ptr, "%Y-%m-%dT%H:%M:%S.", &timeObj);
-		timeSeconds = mktime(&timeObj) - offsetFromUTC;
+		timeSeconds = timegm(&timeObj) - offsetFromUTC;
 		
 		if( msString && *msString )
 		{ // at least one character following decimal point
@@ -421,30 +461,28 @@ static size_t MyRpcWriteFunction( void *buffer, size_t size, size_t nmemb, void 
  */
 std::string aamp_PostJsonRPC( std::string id, std::string method, std::string params )
 {
-	bool rc = false;
 	std::string response;
 	CURL *curlhandle= curl_easy_init();
 	if( curlhandle )
 	{
-		curl_easy_setopt( curlhandle, CURLOPT_URL, "http://127.0.0.1:9998/jsonrpc" ); // local thunder
+		CURL_EASY_SETOPT_STRING( curlhandle, CURLOPT_URL, "http://127.0.0.1:9998/jsonrpc" ); // local thunder
 		
 		struct curl_slist *headers = NULL;
 		headers = curl_slist_append( headers, "Content-Type: application/json" );
-		curl_easy_setopt(curlhandle, CURLOPT_HTTPHEADER, headers);    // set HEADER with content type
+		CURL_EASY_SETOPT_LIST(curlhandle, CURLOPT_HTTPHEADER, headers);    // set HEADER with content type
 		
 		std::string data = "{\"jsonrpc\":\"2.0\",\"id\":"+id+",\"method\":\""+method+"\",\"params\":"+params+"}";
 		AAMPLOG_WARN("JSONRPC data: %s\n", data.c_str() );
-		curl_easy_setopt(curlhandle, CURLOPT_POSTFIELDS, data.c_str() );    // set post data
+		CURL_EASY_SETOPT_STRING(curlhandle, CURLOPT_POSTFIELDS, data.c_str() );    // set post data
 		
-		curl_easy_setopt(curlhandle, CURLOPT_WRITEFUNCTION, MyRpcWriteFunction);    // update callback function
-		curl_easy_setopt(curlhandle, CURLOPT_WRITEDATA, &response);  // and data
+		CURL_EASY_SETOPT_FUNC(curlhandle, CURLOPT_WRITEFUNCTION, MyRpcWriteFunction);    // update callback function
+		CURL_EASY_SETOPT_POINTER(curlhandle, CURLOPT_WRITEDATA, &response);  // and data
 		
 		CURLcode res = curl_easy_perform(curlhandle);
 		if( res == CURLE_OK )
 		{
 			int http_code = GetCurlResponseCode(curlhandle);
 			AAMPLOG_WARN("HTTP %d \n", http_code);
-			rc = true;
 		}
 		else
 		{
@@ -893,6 +931,10 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, MediaTyp
 			{
 				std::size_t manifestPos = fileName.find_last_of('/');
 				std::size_t extPos = fileName.find_last_of('.');
+				if(manifestPos == std::string::npos || extPos == std::string::npos)
+				{
+					return retVal;
+				}
 				std::string ext = fileName.substr(extPos);
 				fileName = fileName.substr(0,manifestPos+1); 
 				fileName = fileName + "manifest." + std::to_string(count) + ext;
@@ -922,13 +964,13 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, MediaTyp
 			{
 				f.write(data, len);
 				f.close();
+				retVal = true;
 			}
 			else
 			{
 				AAMPLOG_ERR("File open failed. outfile = %s ", (dirpath + fileName).c_str());
 			}
 		}
-		retVal = true;
 	}
 	return retVal;
 }

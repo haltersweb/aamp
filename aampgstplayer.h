@@ -134,7 +134,7 @@ public:
          * @param[in] duration duration of buffer (in sec)
          * @param[in] initFragment flag for buffer type (init, data)
          */
-	bool SendTransfer(MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double duration, bool initFragment, bool discontinuity = false);
+	bool SendTransfer(MediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double duration, bool initFragment = false, bool discontinuity = false);
 	/**
          * @fn EndOfStreamReached
          * @param[in] type stream type
@@ -391,7 +391,13 @@ public:
     	 *
      	 */
 	std::string GetVideoRectangle();
+	
+	/**
+         * @fn to check MS2V12Supported or not
+         *
+         */
 
+        static bool IsMS2V12Supported();
 	/**
         *   @fn SignalConnect
 	    *   @note wraps g_signal_connect, adds functionality required by DisconnectSignals()

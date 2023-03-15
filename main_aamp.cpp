@@ -496,7 +496,7 @@ void PlayerInstanceAAMP::SetMinimumBitrate(long bitrate)
 	if (bitrate > 0)
 	{
 		AAMPLOG_INFO("Setting minimum bitrate: %ld", bitrate);
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_MinBitrate,bitrate);
+		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_MinBitrate,(int)bitrate);
 	}
 	else
 	{
@@ -510,7 +510,7 @@ void PlayerInstanceAAMP::SetMinimumBitrate(long bitrate)
  */
 long PlayerInstanceAAMP::GetMinimumBitrate(void)
 {
-	long bitrate;
+	int bitrate;
 	GETCONFIGVALUE(eAAMPConfig_MinBitrate,bitrate);
 	return bitrate;
 }
@@ -523,7 +523,7 @@ void PlayerInstanceAAMP::SetMaximumBitrate(long bitrate)
 	if (bitrate > 0)
 	{
 		AAMPLOG_INFO("Setting maximum bitrate : %ld", bitrate);
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_MaxBitrate,bitrate);
+		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_MaxBitrate,(int)bitrate);
 	}
 	else
 	{
@@ -536,7 +536,7 @@ void PlayerInstanceAAMP::SetMaximumBitrate(long bitrate)
  */
 long PlayerInstanceAAMP::GetMaximumBitrate(void)
 {
-	long bitrate;
+	int bitrate;
 	GETCONFIGVALUE(eAAMPConfig_MaxBitrate,bitrate);
 	return bitrate;
 }
@@ -772,12 +772,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
 					retValue = aamp->mStreamSink->Pause(false, false);
 					aamp->NotifyFirstBufferProcessed(); //required since buffers are already cached in paused state
-					if(aamp->GetLLDashServiceData()->lowLatencyMode)
-					{
-						// PAUSED to PLAY without tune, LLD rate correction is disabled to keep position
-						AAMPLOG_INFO("LL-Dash speed correction disabled after Pause->Play");
-						aamp->SetLLDashAdjustSpeed(false);
-					}
 				}
 				aamp->pipeline_paused = false;
 				aamp->ResumeDownloads();
@@ -791,6 +785,13 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->StopDownloads();
 				retValue = aamp->mStreamSink->Pause(true, false);
 				aamp->pipeline_paused = true;
+				if(aamp->GetLLDashServiceData()->lowLatencyMode)
+				{
+					// PAUSED to PLAY without tune, LLD rate correction is disabled to keep position
+					AAMPLOG_INFO("LL-Dash speed correction disabled after Pause");
+					aamp->SetLLDashAdjustSpeed(false);
+				}
+				aamp->mDisableRateCorrection = true;
 			}
 		}
 		else
@@ -1259,7 +1260,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 				AAMPLOG_WARN("Pausing Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 				aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 				aamp->StopDownloads();
-				bool retValue = aamp->mStreamSink->Pause(true, false);
+				(void)aamp->mStreamSink->Pause(true, false);
 				aamp->pipeline_paused = true;
 			}
 		}
@@ -1318,13 +1319,22 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
 		{
 			if (aamp->mpStreamAbstractionAAMP)
 			{
-				aamp->SetVideoMute(muted);
-				SetCCStatus(muted ? false : !aamp->subtitles_muted);
+				aamp->SetVideoMute(muted); // hide/show video plane
+				bool subtitles_are_logically_muted = aamp->subtitles_muted;
+				if( muted )
+				{ // hiding video plane
+					SetCCStatus(false); // hide subtitle plane (along with video)
+					aamp->subtitles_muted = subtitles_are_logically_muted;
+				}
+				else
+				{ // we are unmuting video; also unmute subtitles if appropriate
+					SetCCStatus(!subtitles_are_logically_muted);
+				}
 			}
 			else
 			{
 				AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
-				aamp->mApplyCachedVideoMute = true;
+				aamp->mApplyCachedVideoMute = true; // can't do it now, but remember that we want video muted
 			}
 			aamp->ReleaseStreamLock();
 		}
@@ -1814,15 +1824,15 @@ void PlayerInstanceAAMP::SetVideoBitrate(long bitrate)
 	{
 		// Single bitrate profile selection , with abr disabled
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_EnableABR,false);
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,bitrate);
+		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,(int)bitrate);
 	}
 	else
 	{
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_EnableABR,true);
-		long gpDefaultBitRate;
-		gpGlobalConfig->GetConfigValue( eAAMPConfig_DefaultBitrate ,gpDefaultBitRate);
+		int gpDefaultBitRate;
+		gpGlobalConfig->GetConfigValue( eAAMPConfig_DefaultBitrate, gpDefaultBitRate);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,gpDefaultBitRate);
-		AAMPLOG_WARN("Resetting default bitrate to  %ld", gpDefaultBitRate);
+		AAMPLOG_WARN("Resetting default bitrate to  %d", gpDefaultBitRate);
 	}
 }
 
@@ -1959,7 +1969,7 @@ std::vector<long> PlayerInstanceAAMP::GetAudioBitrates(void)
 void PlayerInstanceAAMP::SetInitialBitrate(long bitrate)
 {
 	ERROR_STATE_CHECK_VOID();
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,bitrate);
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate,(int)bitrate);
 }
 
 /**
@@ -1967,7 +1977,7 @@ void PlayerInstanceAAMP::SetInitialBitrate(long bitrate)
  */
 long PlayerInstanceAAMP::GetInitialBitrate(void)
 {
-	long bitrate;
+	int bitrate;
 	GETCONFIGVALUE(eAAMPConfig_DefaultBitrate,bitrate);
 	return bitrate;
 }
@@ -1978,7 +1988,7 @@ long PlayerInstanceAAMP::GetInitialBitrate(void)
 void PlayerInstanceAAMP::SetInitialBitrate4K(long bitrate4K)
 {
 	ERROR_STATE_CHECK_VOID();
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate4K,bitrate4K);
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DefaultBitrate4K,(int)bitrate4K);
 }
 
 /**
@@ -1986,7 +1996,7 @@ void PlayerInstanceAAMP::SetInitialBitrate4K(long bitrate4K)
  */
 long PlayerInstanceAAMP::GetInitialBitrate4k(void)
 {
-	long bitrate4K;
+	int bitrate4K;
 	GETCONFIGVALUE(eAAMPConfig_DefaultBitrate4K,bitrate4K);
 	return bitrate4K;
 }
@@ -1996,7 +2006,7 @@ long PlayerInstanceAAMP::GetInitialBitrate4k(void)
  */
 void PlayerInstanceAAMP::SetNetworkTimeout(double timeout)
 {
-        ERROR_STATE_CHECK_VOID();
+	ERROR_STATE_CHECK_VOID();
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_NetworkTimeout,timeout);
 }
 
@@ -2014,8 +2024,8 @@ void PlayerInstanceAAMP::SetManifestTimeout(double timeout)
  */
 void PlayerInstanceAAMP::SetPlaylistTimeout(double timeout)
 {
-        ERROR_STATE_CHECK_VOID();        
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PlaylistTimeout,timeout);
+	ERROR_STATE_CHECK_VOID();
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PlaylistTimeout,timeout);
 }
 
 /**
@@ -2136,7 +2146,7 @@ void PlayerInstanceAAMP::SetLicenseReqProxy(const char * licenseProxy)
 /**
  *  @brief To set the curl stall timeout value
  */
-void PlayerInstanceAAMP::SetDownloadStallTimeout(long stallTimeout)
+void PlayerInstanceAAMP::SetDownloadStallTimeout(int stallTimeout)
 {
 	ERROR_STATE_CHECK_VOID();
 	if( stallTimeout >= 0 )
@@ -2148,7 +2158,7 @@ void PlayerInstanceAAMP::SetDownloadStallTimeout(long stallTimeout)
 /**
  *  @brief To set the curl download start timeout
  */
-void PlayerInstanceAAMP::SetDownloadStartTimeout(long startTimeout)
+void PlayerInstanceAAMP::SetDownloadStartTimeout(int startTimeout)
 {
 	ERROR_STATE_CHECK_VOID();
         if( startTimeout >= 0 )
@@ -2160,7 +2170,7 @@ void PlayerInstanceAAMP::SetDownloadStartTimeout(long startTimeout)
 /**
  *  @brief To set the curl download low bandwidth timeout value
  */
-void PlayerInstanceAAMP::SetDownloadLowBWTimeout(long lowBWTimeout)
+void PlayerInstanceAAMP::SetDownloadLowBWTimeout(int lowBWTimeout)
 {
 	ERROR_STATE_CHECK_VOID();
 	if( lowBWTimeout >= 0 )
@@ -3180,13 +3190,13 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 /**
  *   @brief To set the dynamic drm update on key rotation timeout value.
  *
- *   @param[in] preferred timeout value
+ *   @param[in] preferred timeout value in seconds
  */
 void PlayerInstanceAAMP::SetContentProtectionDataUpdateTimeout(int timeout)
 {
 	ERROR_STATE_CHECK_VOID();
 	int timeout_ms = timeout * 1000;
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_ContentProtectionDataUpdateTimeout,timeout);
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_ContentProtectionDataUpdateTimeout,timeout_ms);
 }
 
 /**

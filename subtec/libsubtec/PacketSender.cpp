@@ -129,6 +129,11 @@ void PacketSender::flushPacketQueue()
 
 void PacketSender::sendPacket(PacketPtr && pkt)
 {
+    if(!pkt)
+    {
+         AAMPLOG_ERR("PacketSender: pkt is null pointer");
+	 return;
+    }
     auto buffer = pkt->getBytes();
     size_t size =  static_cast<ssize_t>(buffer.size());
     if (size > mSockBufSize && size < MAX_SNDBUF_SIZE)
@@ -145,6 +150,7 @@ void PacketSender::sendPacket(PacketPtr && pkt)
 	}
     }
     auto written = ::write(mSubtecSocketHandle, &buffer[0], size);
+    (void)written; // Avoid a warning.
     AAMPLOG_TRACE("PacketSender: Written %ld bytes with size %ld", written, size);
 }
 

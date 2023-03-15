@@ -172,16 +172,13 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if (sscanf(cmd, "seek %lf %d", &seconds, &keepPaused) >= 1)
 	{
 		bool seekWhilePaused = (keepPaused==1);
-		{
-			playerInstanceAamp->Seek(seconds, (keepPaused==1) );
-		}
-		keepPaused = 0;
+		playerInstanceAamp->Seek(seconds, seekWhilePaused );
 	}
 	else if (isCommandMatch(cmd, "slow") )
 	{
 		playerInstanceAamp->SetRate((float)0.5);
 	}
-	else if (sscanf(cmd, "ff%d", &rate) == 1)
+	else if (sscanf(cmd, "ff %d", &rate) == 1)
 	{
 		playerInstanceAamp->SetRate((float)rate);
 	}
@@ -197,7 +194,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		playerInstanceAamp->SetRate(0);
 	}
-	else if (sscanf(cmd, "rw%d", &rate) == 1)
+	else if (sscanf(cmd, "rew %d", &rate) == 1)
 	{
 		playerInstanceAamp->SetRate((float)(-rate));
 	}
@@ -288,8 +285,8 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if( isCommandMatch(cmd,"history") )
 	{
-		HISTORY_STATE *historyState = history_get_history_state ();
-		for (int i = 0; i < historyState->length; i++)
+		// history_length is defined in the header file history.h
+		for (int i = 0; i < history_length; i++)
 		{
 			printf ("%s\n", history_get(i+1)->line);
 		}

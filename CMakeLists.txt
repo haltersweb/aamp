@@ -14,6 +14,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# XCode schema generation / flag setting
+# Other flags see here: https://cmake.org/cmake/help/latest/prop_tgt/XCODE_GENERATE_SCHEME.html
+function(xcode_define_schema new_schema)
+    message( "xcode_define_schema for ${new_schema}" )
+    set_property(TARGET ${new_schema} PROPERTY XCODE_GENERATE_SCHEME TRUE)
+    set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER TRUE)
+    set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER_USE_AFTER_RETURN TRUE)
+endfunction()
+
 if(APPLE)
 	set(CMAKE_C_COMPILER "/usr/bin/cc")
 	set(CMAKE_CXX_COMPILER "/usr/bin/c++")
@@ -67,6 +77,9 @@ else()
 	message("CMAKE_QT5WEBKIT_JSBINDINGS not set, CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
 
+#update XCode scheme flags, harmless for non Darwin builds
+set (CMAKE_CODE_GENERATE_SCHEME TRUE)
+
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
         set(OPENGL_LIBRARIES "-framework OpenGL -framework GLUT")
@@ -95,10 +108,14 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     pkg_check_modules(GLIB REQUIRED GLib-2.0)
     include_directories(${GLIB_INCLUDE_DIRS})
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCONTENT_4K_SUPPORTED")
+
+    # XCode build flags. Even when using CLANG, the GCC name is required to enable the check
+    set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_UNUSED_FUNCTION "YES")
+    set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_UNUSED_VARIABLE "YES")
 else()
     set(USE_MAC_FOR_RANDOM_GEN "-DUSE_MAC_FOR_RANDOM_GEN")
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    
+
 if(CMAKE_RDK_CC_ENABLED)
 	pkg_check_modules(DIRECTFB REQUIRED directfb)
 endif()
@@ -114,7 +131,8 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${OPENSSL_INCLUDE_DIRS})
 include_directories(${OPENGL_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
-include_directories(${LIBCJSON_INCLUDE_DIRS})
+# Sets the include paths to Linux/includem. By making it a system include the headers won't report any errors ( effc++ )
+include_directories(SYSTEM ${LIBCJSON_INCLUDE_DIRS})
 
 set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampConfig.h
@@ -160,6 +178,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					tsprocessor.h
 					uint33_t.h
 					videoin_shim.h
+					AampCMCDCollector.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -177,6 +196,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					hdmiin_shim.cpp
 					videoin_shim.cpp
 					compositein_shim.cpp
+					rmf_shim.cpp
 					fragmentcollector_progressive.cpp
 					fragmentcollector_hls.cpp
 					fragmentcollector_mpd.cpp
@@ -198,6 +218,8 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampGstUtils.cpp
 					MediaStreamContext.cpp
 					AampCurlStore.cpp
+					AampDRMLicPreFetcher.cpp
+					AampCMCDCollector.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
@@ -302,32 +324,32 @@ if(CMAKE_IARM_MGR)
 endif()
 
 if(CMAKE_PLATFORM_UBUNTU)
-    message("AAMP_SIMULATOR_BUILD set")
+    message("CMAKE_PLATFORM_UBUNTU set")
     link_directories(${CMAKE_LIBRARY_PATH})
-    STRING(REPLACE " -Werror=effc++" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 endif()
 
-set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h 
-		     test/aampcli/AampcliPlaybackCommand.h
-	             test/aampcli/AampcliCommandHandler.h
-		     test/aampcli/AampcliGet.h
-		     test/aampcli/AampcliSet.h
-		     test/aampcli/AampcliVirtualChannelMap.h
-		     test/aampcli/AampcliShader.h
-		     test/aampcli/AampcliHarvestor.h
-		     test/aampcli/AampcliSmokeTest.h
-		     ${AAMP_OS_SOURCES})
-set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp 
-		     test/aampcli/AampcliPlaybackCommand.cpp
-	             test/aampcli/AampcliCommandHandler.cpp
-		     test/aampcli/AampcliGet.cpp
-		     test/aampcli/AampcliSet.cpp
-		     test/aampcli/AampcliVirtualChannelMap.cpp
-		     test/aampcli/AampcliShader.cpp
-		     test/aampcli/AampcliHarvestor.cpp
-		     test/aampcli/AampcliSmokeTest.cpp
-		     ${AAMP_OS_SOURCES})
-
+set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h
+			test/aampcli/AampcliPlaybackCommand.h
+			test/aampcli/AampcliCommandHandler.h
+			test/aampcli/AampcliGet.h
+			test/aampcli/AampcliSet.h
+			test/aampcli/AampcliVirtualChannelMap.h
+			test/aampcli/AampcliShader.h
+			test/aampcli/AampcliHarvestor.h
+			test/aampcli/AampcliSmokeTest.h
+			test/aampcli/AampcliSubtecSimulator.h
+			${AAMP_OS_SOURCES})
+set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
+			test/aampcli/AampcliPlaybackCommand.cpp
+			test/aampcli/AampcliCommandHandler.cpp
+			test/aampcli/AampcliGet.cpp
+			test/aampcli/AampcliSet.cpp
+			test/aampcli/AampcliVirtualChannelMap.cpp
+			test/aampcli/AampcliShader.cpp
+			test/aampcli/AampcliHarvestor.cpp
+			test/aampcli/AampcliSmokeTest.cpp
+			test/aampcli/AampcliSubtecSimulator.cpp
+			${AAMP_OS_SOURCES})
 
 
 # Session based stats for latency histogram
@@ -541,7 +563,7 @@ if (CMAKE_RDK_CC_ENABLED)
 		include_directories(${STAGING_INCDIR}/closedcaption/ccGraphics)
 		include_directories(${STAGING_INCDIR}/closedcaption/ccManager)
 		set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/fakes/ccManagerFakes.cpp)
-        copy_staging_header_file(vlCCConstants.h)
+		copy_staging_header_file(vlCCConstants.h)
 	else()
 		set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lrdkCCReader -lrdkCCManager -lrdkCCGfx -l${DIRECTFB_LIBRARIES}")
 	endif()
@@ -551,15 +573,18 @@ set(AAMP_SUBTEC_CLASS_SOURCES subtec/subtecparser/WebVttSubtecParser.cpp subtec/
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} ${AAMP_SUBTEC_CLASS_SOURCES})
 include_directories(subtec/subtecparser)
 
-message("CMAKE_GST_SUBTEC_ENABLED set")
 add_library(subtec SHARED subtec/libsubtec/PacketSender.cpp subtec/libsubtec/SubtecChannel.cpp)
 set(AAMP_SUBTEC_PUBLIC_HEADERS subtec/libsubtec/SubtecChannel.hpp subtec/libsubtec/SubtecAttribute.hpp)
 set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${AAMP_SUBTEC_PUBLIC_HEADERS}")
-set_target_properties(subtec PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
+set(AAMP_SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
+if(CMAKE_PLATFORM_UBUNTU)
+	set(AAMP_SUBTEC_COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS} -DUBUNTU=1")
+endif()
+set_target_properties(subtec PROPERTIES COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS}")
 include_directories(subtec/libsubtec)
 install (TARGETS subtec
-        DESTINATION lib
-        PUBLIC_HEADER DESTINATION include 
+		DESTINATION lib
+		PUBLIC_HEADER DESTINATION include
 )
 
 if (CMAKE_GST_SUBTEC_ENABLED)
@@ -605,8 +630,13 @@ set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_DRM_SOURCES}" "${LIBAAMP_MOC
 add_library(aamp SHARED ${LIBAAMP_HEADERS} ${LIBAAMP_SOURCES} ${LIBAAMP_HELP_SOURCES})
 add_executable(aamp-cli ${AAMP_CLI_HEADERS} ${AAMP_CLI_SOURCES})
 target_link_libraries(aamp-cli "-lreadline")
+# XCode schema target
+xcode_define_schema(aamp-cli)
+
 add_executable(playbintest test/playbintest.cpp)
 target_link_libraries(playbintest ${PLAYBINTEST_DEPENDS})
+# XCode schema target
+xcode_define_schema(playbintest)
 
 if(CMAKE_SOC_PLATFORM_INTEL)
 	message("CMAKE_SOC_PLATFORM_INTEL set")
@@ -680,6 +710,7 @@ target_link_libraries(aamp-cli aamp ${AAMP_CLI_LD_FLAGS})
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
 set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${AAMP_CLI_EXTRA_DEFINES} ${OS_CXX_FLAGS}")
+
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 
@@ -690,7 +721,7 @@ install(TARGETS aamp-cli DESTINATION bin)
 install(TARGETS playbintest DESTINATION bin)
 
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
-install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampEventManager.h AampDefine.h AampEventListener.h drm/AampMemorySystem.h drm/AampDRMSessionManager.h AampDrmSystems.h AampMediaType.h
+install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h drm/AampMemorySystem.h drm/AampDRMSessionManager.h AampDrmSystems.h AampMediaType.h
   drm/AampDrmData.h drm/AampDrmInfo.h drm/AampDrmMediaFormat.h AampDrmCallbacks.h AampLogManager.h 
   drm/AampDrmSession.h drm/ClearKeyDrmSession.h drm/AampDRMutils.h drm/aampdrmsessionfactory.h
   drm/helper/AampDrmHelper.h subtitle/vttCue.h AampUtils.h

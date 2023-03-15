@@ -262,7 +262,7 @@ private:
 			if ((base_pts > current_pts)
 				|| (current_dts && base_pts > current_dts))
 			{
-				WARNING("Discard ES Type %d position %f base_pts %llu current_pts %llu diff %f seconds length %d",
+				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " diff %f seconds length %d",
 					type, position, base_pts.value, current_pts.value, (double)(base_pts - current_pts) / 90000, (int)es.len );
 				es.len = 0;
 				return;
@@ -270,7 +270,7 @@ private:
 
 			if (base_pts + uint33_t::half_max() > current_pts + uint33_t::half_max())
 			{
-				WARNING("Discard ES Type %d position %f base_pts %llu current_pts %llu base_pts+half_max %llu current_pts+half_max %llu",
+				WARNING("Discard ES Type %d position %f base_pts %" PRIu64 " current_pts %" PRIu64 " base_pts+half_max %" PRIu64 " current_pts+half_max %" PRIu64 ,
 					type, position, base_pts.value, current_pts.value, (base_pts+uint33_t::half_max()).value, (current_pts+uint33_t::half_max()).value);
 				es.len = 0;
 				return;
@@ -462,10 +462,10 @@ public:
 							auto prev_pts = exchange(current_pts, timeStamp);
 							if(prev_pts > current_pts && prev_pts - current_pts > uint33_t::half_max())
 							{//pts may come out of order so prev>current is not sufficient to detect the rollover
-								WARNING("PTS Rollover type:%d %llu -> %llu ", type, prev_pts.value, current_pts.value);
+								WARNING("PTS Rollover type:%d %" PRIu64 " -> %" PRIu64 , type, prev_pts.value, current_pts.value);
 							}
 							current_pts = timeStamp;
-							DEBUG("PTS updated %llu", current_pts.value);
+							DEBUG("PTS updated %" PRIu64 , current_pts.value);
 							if(!finalized_base_pts)
 							{
 								finalized_base_pts = true;
@@ -478,7 +478,7 @@ public:
 										if(applyOffset)
 										{
 											base_pts = current_pts - MAX_FIRST_PTS_OFFSET;
-											WARNING("Type[%d] base_pts not initialized, updated to %llu", type, base_pts.value );
+											WARNING("Type[%d] base_pts not initialized, updated to %" PRIu64 , type, base_pts.value);
 										}
 										else
 										{
@@ -505,7 +505,7 @@ public:
 											{
 												base_pts = current_pts;
 											}
-											WARNING("Type[%d] current_pts[%llu] < base_pts[%llu], base_pts[%llu]->[%llu]",
+											WARNING("Type[%d] current_pts[%" PRIu64 "] < base_pts[%" PRIu64 "], base_pts[%" PRIu64 "]->[%" PRIu64 "]",
 												type, current_pts.value, base_pts.value, orig_base_pts.value, base_pts.value);
 										}
 										else /*current_pts >= base_pts*/
@@ -523,12 +523,12 @@ public:
 												{
 													base_pts = current_pts;
 												}
-												NOTICE("Type[%d] delta[%lld] > MAX_FIRST_PTS_OFFSET, current_pts[%llu] base_pts[%llu]->[%llu]",
+												NOTICE("Type[%d] delta[%" PRIu64 "] > MAX_FIRST_PTS_OFFSET, current_pts[%" PRIu64 "] base_pts[%" PRIu64 "]->[%" PRIu64 "]",
 													type, delta.value, current_pts.value, orig_base_pts.value, base_pts.value);
 											}
 											else
 											{
-												NOTICE("Type[%d] PTS in range.delta[%lld] <= MAX_FIRST_PTS_OFFSET base_pts[%llu]",
+												NOTICE("Type[%d] PTS in range.delta[%" PRIu64 "] <= MAX_FIRST_PTS_OFFSET base_pts[%" PRIu64 "]",
 													type, delta.value, base_pts.value);
 											}
 										}
@@ -537,11 +537,11 @@ public:
 								if (-1 == base_pts)
 								{
 									base_pts = timeStamp;
-									WARNING("base_pts not available, updated to pts %llu", timeStamp.value );
+									WARNING("base_pts not available, updated to pts %" PRIu64 , timeStamp.value);
 								}
 								else if (base_pts > timeStamp)
 								{
-									WARNING("base_pts update from %llu to %llu", base_pts.value, timeStamp.value );
+									WARNING("base_pts update from %" PRIu64 " to %" PRIu64 , base_pts.value, timeStamp.value);
 									base_pts = timeStamp;
 								}
 								basePtsUpdated = true;
@@ -2065,6 +2065,8 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 						}
 					}
 				}
+
+				(void)payloadOffset; // Avoid a warning as the last value set may not be used.
 			}
 			if (doThrottle)
 			{
@@ -2640,7 +2642,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 					H264SPS *pSPS;
 					int mask = 0x40;
 					unsigned char *p = &buffer[INDEX(4)];
-					int slice_type = getUExpGolomb(p, mask);
+					(void)getUExpGolomb(p, mask); // slice_type
 					int pic_parameter_set_id = getUExpGolomb(p, mask);
 					m_currSPSId = m_PPS[pic_parameter_set_id].spsId;
 					pSPS = &m_SPS[m_currSPSId];
@@ -2702,7 +2704,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 			{
 				unsigned char *newBuff = 0;
 				int newSize = m_emulationPreventionCapacity * 2 + length;
-				newBuff = (unsigned char *)calloc(newSize,sizeof(char));
+				newBuff = (unsigned char *)calloc(newSize,sizeof(unsigned char));
 				if (!newBuff)
 				{
 					ERROR("Error: unable to allocate emulation prevention buffer");
@@ -2786,7 +2788,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 				{
 					unsigned char *newBuff = 0;
 					int newSize = m_emulationPreventionCapacity * 2 + length;
-					newBuff = (unsigned char *)malloc(newSize*sizeof(char));
+					newBuff = (unsigned char *)malloc(newSize*sizeof(unsigned char));
 					if (!newBuff)
 					{
 						AAMPLOG_ERR("Error: unable to allocate emulation prevention buffer");
@@ -2919,20 +2921,11 @@ void TSProcessor::checkIfInterlaced(unsigned char *packet, int length)
 					{
 						int streamid = packet[payload + 3];
 						int pesHeaderDataLen = packet[payload + 8];
-						int tsbase = payload + 9;
 
 						if ((streamid >= 0xE0) && (streamid <= 0xEF))
 						{
 							// Video
 							m_scanForFrameSize = true;
-						}
-						if (packet[payload + 7] & 0x80)
-						{
-							tsbase += 5;
-						}
-						if (packet[payload + 7] & 0x40)
-						{
-							tsbase += 5;
 						}
 						payload = payload + 9 + pesHeaderDataLen;
 					}
@@ -3279,6 +3272,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 							  WARNING("Warning: PES packet has CRC flag set");
 						  }
 						  payload = payload + 9 + pesHeaderDataLen;
+						  (void)tsbase; // Avoid a warning as the last value set may not be used.
 					  }
 				  }
 			  }
@@ -4081,7 +4075,8 @@ unsigned char* TSProcessor::createNullPFrame(int width, int height, int *nullPFr
 	int sliceBitLen, sliceLen, sliceCount;
 	int numTSPackets;
 	unsigned char slice[16];
-	int i, j, accum, bitcount;
+	int i, j, bitcount;
+	uint32_t accum;
 
 	// Start of Video (19) + Picture (9) + Picture coding extension (9) minus TS packet header
 	requiredLen = sizeof(nullPFrameHeader) - 4;
@@ -4168,8 +4163,12 @@ unsigned char* TSProcessor::createNullPFrame(int width, int height, int *nullPFr
 	FLUSH_ALL_SLICE_BITS();
 	assert(i == sliceLen);
 
+	if (numTSPackets > 0)
+	{
+		nullPFrame = (unsigned char *)malloc(((size_t)numTSPackets)*m_packetSize);
+	}
+
 	i = 0;
-	nullPFrame = (unsigned char *)malloc(numTSPackets*m_packetSize);
 	if (nullPFrame)
 	{
 		if (m_ttsSize)
@@ -4373,7 +4372,7 @@ bool TSProcessor::processSeqParameterSet(unsigned char *p, int length)
 				int aspect_ratio_info_present_flag = getBits(p, mask, 1);
 				if (aspect_ratio_info_present_flag)
 				{
-					int aspect_ratio_idc = getBits(p, mask, 8);
+					(void)getBits(p, mask, 8); // aspect_ratio_idc
 				}
 
 				int overscan_info_present_flag = getBits(p, mask, 1);
@@ -4659,7 +4658,6 @@ bool TSProcessor::FilterAudioCodecBasedOnConfig(StreamOutputFormat audioFormat)
 	bool ignoreProfile = false;
 	bool bDisableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
 	bool bDisableAC3 = bDisableEC3;
-	bool bDisableAC4 = ISCONFIGSET(eAAMPConfig_DisableAC4);
 	// bringing in parity with DASH , if EC3 is disabled ,then ATMOS also will be disabled
 	bool bDisableATMOS = (bDisableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
 

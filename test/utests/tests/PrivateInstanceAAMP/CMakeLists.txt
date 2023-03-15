@@ -34,13 +34,13 @@ else()
     include_directories(${AAMP_ROOT}/Linux/include/libdash)
     set(OS_LD_FLAGS -luuid)
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    
+
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
-include_directories(${UTESTS_ROOT}/mocks)
+include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 
 set(TEST_SOURCES PauseAtTests.cpp
@@ -55,9 +55,22 @@ add_executable(${EXEC_NAME}
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
-# Can be removed once SESSION_STATS build issues resolved
-set_target_properties(${EXEC_NAME} PROPERTIES COMPILE_FLAGS "-DSESSION_STATS")
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest)
+if (COVERAGE_ENABLED)
+    include(CodeCoverage)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+    #Set NO_EXCLUDE_DIR to the location of this test so it doesn't get excluded & include common exclude files:
+    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/PrivateInstanceAAMP/*")
+    include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")    
+    SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
+                              EXECUTABLE ${EXEC_NAME}
+                              DEPENDENCIES ${EXEC_NAME})
+endif()
+
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lcurl)
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)

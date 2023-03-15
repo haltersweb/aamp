@@ -13,11 +13,23 @@ if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
   set(SMOKETEST_DEFINES "${SMOKETEST_DEFINES} -DSIMULATOR_BUILD=1")
 endif()
 
-set(HEADERS AampSmokeTestPlayer.h TuneSmokeTest.h)
-set(SOURCES AampSmokeTestPlayer.cpp TuneSmokeTest.cpp gtest_main.cpp)
+set(AAMP_ROOT ${CMAKE_SOURCE_DIR})
+
+# Mac OS X
+if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    set(AAMP_OS_SOURCES ${AAMP_ROOT}/cocoa_window.mm)
+    set(AAMP_OS_HEADERS ${AAMP_ROOT}/cocoa_window.h)
+endif()
+
+set(HEADERS AampSmokeTestPlayer.h TuneSmokeTest.h ${AAMP_OS_HEADERS})
+set(SOURCES AampSmokeTestPlayer.cpp TuneSmokeTest.cpp gtest_main.cpp ${AAMP_OS_SOURCES})
+
+
 add_executable(aamp_smoketest ${HEADERS} ${SOURCES})
 add_dependencies(aamp_smoketest aamp)
 set_target_properties(aamp_smoketest PROPERTIES COMPILE_FLAGS "${SMOKETEST_DEFINES} ${LIBAAMP_DEFINES} ${AAMP_CLI_EXTRA_DEFINES} ${OS_CXX_FLAGS}")
+# XCode schema target
+xcode_define_schema(aamp_smoketest)
 target_link_libraries(aamp_smoketest aamp ${GOOGLETEST_LIBRARIES})
 
 install (TARGETS aamp_smoketest DESTINATION lib)

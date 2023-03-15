@@ -245,11 +245,11 @@ class TrackState : public MediaTrack
 		void ABRProfileChanged(void);
 		/***************************************************************************
 		 * @fn GetNextFragmentUriFromPlaylist
+		 * @param reloadUri reload uri on playlist refreshed scenario
 		 * @param ignoreDiscontinuity Ignore discontinuity
-		 * @param init flag to identify called from Init call
 		 * @return string fragment URI pointer
 		 ***************************************************************************/
-		char *GetNextFragmentUriFromPlaylist(bool ignoreDiscontinuity=false, bool init=false);
+		char *GetNextFragmentUriFromPlaylist(bool &reloadUri, bool ignoreDiscontinuity=false);
 		/***************************************************************************
 		 * @fn UpdateDrmIV
 		 *
@@ -348,13 +348,6 @@ class TrackState : public MediaTrack
 		 * @return void
 		 ***************************************************************************/
 		void CancelDrmOperation(bool clearDRM);
-
-		/***************************************************************************
-		 * @fn StopDiscontinuityCheck
-		 *
-		 * @return void
-		 ***************************************************************************/
-		void StopDiscontinuityCheckWait();
 
 		/***************************************************************************
 		 * @fn RestoreDrmState
@@ -548,6 +541,7 @@ class TrackState : public MediaTrack
 		long long lastPlaylistDownloadTimeMS;	 /**< UTC time at which playlist was downloaded */
 		size_t byteRangeLength;					 /**< state for \#EXT-X-BYTERANGE fragments */
 		size_t byteRangeOffset;					 /**< state for \#EXT-X-BYTERANGE fragments */
+		long long lastPlaylistIndexedTimeMS;	 /**< UTC time at which last playlist indexed */
 
 		long long nextMediaSequenceNumber;		 /**< media sequence number following current fragment-of-interest */
 		double playlistPosition;				 /**< playlist-relative time of most recent fragment-of-interest; -1 if undefined */
@@ -575,14 +569,12 @@ class TrackState : public MediaTrack
 		bool mIndexingInProgress;				 /**< indicates if indexing is in progress*/
 		GrowableBuffer mDiscontinuityIndex;		 /**< discontinuity start position mapping of associated playlist */
 		int mDiscontinuityIndexCount;			 /**< number of records in discontinuity position index */
-		std::atomic<bool> mDiscontinuityCheckingOn;
 		double mDuration;						 /** Duration of the track*/
 		typedef std::vector<KeyTagStruct> KeyHashTable;
 		typedef std::vector<KeyTagStruct>::iterator KeyHashTableIter;
 		KeyHashTable mKeyHashTable;
 		bool mCheckForInitialFragEnc;			/**< Flag that denotes if we should check for encrypted init header and push it to GStreamer*/
 		DrmKeyMethod mDrmMethod;				/**< denotes the X-KEY method for the fragment of interest */
-		CMCDHeaders *pCMCDMetrics;		/**<pointer object to class CMCDHeaders*/
 
 	private:
 		bool refreshPlaylist;					/**< bool flag to indicate if playlist refresh required or not */
@@ -598,8 +590,6 @@ class TrackState : public MediaTrack
 		pthread_mutex_t mPlaylistMutex;			/**< protect playlist update */
 		pthread_cond_t mPlaylistIndexed;		/**< Notifies after a playlist indexing operation */
 		pthread_mutex_t mTrackDrmMutex;			/**< protect DRM Interactions for the track */
-		pthread_mutex_t mDiscoCheckMutex;			/**< protect playlist discontinuity check */
-		pthread_cond_t mDiscoCheckComplete;		/**< Notifies after a discontinuity check */
 		double mLastMatchedDiscontPosition;		/**< Holds discontinuity position last matched	by other track */
 		double mCulledSeconds;					/**< Total culled duration in this streamer instance*/
 		double mCulledSecondsOld;				/**< Total culled duration in this streamer instance*/
@@ -700,13 +690,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 ***************************************************************************/
 		double GetFirstPTS() override;
 		/***************************************************************************
-		 * @fn GetStartTimeOfFirstPTS
-		 * @brief Function to return start time of first PTS
-		 *
-		 * @return double start time of first PTS value
-		 ***************************************************************************/
-		double GetStartTimeOfFirstPTS() override { return 0.0; }
-		/***************************************************************************
 		 * @fn GetMediaTrack
 		 *
 		 * @param[in] type TrackType input
@@ -726,12 +709,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return available video bitrates
 		 ***************************************************************************/
 		std::vector<long> GetVideoBitrates(void) override;
-		/***************************************************************************
-		 * @fn GetAudioBitrates
-		 *
-		 * @return available audio bitrates
-		 ***************************************************************************/
-		std::vector<long> GetAudioBitrates(void) override;
 		/***************************************************************************
 		 * @fn GetMediaCount
 		 * @brief Function to get the Media count
@@ -830,6 +807,13 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 */
 		virtual bool Is4KStream(int &height, long &bandwidth) override;
 
+		/**
+		 * @fn UpdateFailedDRMStatus
+		 * @brief Function to update the failed DRM status to mark the adaptation sets to be omitted
+		 * @param[in] object  - Prefetch object instance which failed
+		 */
+		void UpdateFailedDRMStatus(LicensePreFetchObject *object) override { }
+
 		//private:
 		// TODO: following really should be private, but need to be accessible from callbacks
 
@@ -848,7 +832,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		bool firstFragmentDecrypted;			/**< Flag indicating if first fragment is decrypted for stream */
 		bool mStartTimestampZero;			/**< Flag indicating if timestamp to start is zero or not (No audio stream) */
 		int mNumberOfTracks;				/**< Number of media tracks.*/
-		CMCDHeaders *pCMCDMetrics;			/**<pointer object to class CMCDHeaders*/
+		pthread_mutex_t mDiscoCheckMutex;               /**< protect playlist discontinuity check */
 		/***************************************************************************
 		 * @fn ParseMainManifest
 		 *

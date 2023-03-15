@@ -407,7 +407,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | preferredSubtitleLanguage | String | en | ISO-639 language code used with VTT OOB captions |
 | nativeCCRendering | Boolean | False | Use native ClosedCaption support in AAMP (version 2.6) |
 | sendLicenseResponseHeaders | Boolean | False | Optional field to enable headers in DRM metadata event after license request |
-
+| enableLiveLatencyCorrection | Boolean | False | Optional field to enable live latency correction for non LLD streams |
+| liveOffsetDriftCorrectionInterval | Number | 1 | Optional field to set the allowed delta from live offset configured |
 
 
 Example:

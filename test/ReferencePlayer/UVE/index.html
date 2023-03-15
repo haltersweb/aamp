@@ -24,20 +24,8 @@
 <head>
     <meta charset="utf-8">
     <title>UVE Reference Player</title>
-    <style type="text/css">
-        <!-- XFINITY Sans Thin -->
-        @font-face {
-        font-family: 'XfinityStandard';
-        src: url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.woff2") format("woff2"),
-            url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.woff") format("woff"),
-            url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.ttf") format("truetype");
-        font-weight: 100;
-        font-style: normal;
-        }
-    </style>
-    <!-- <link rel="stylesheet" href="UVERefPlayerStyle.css">
-    <link rel="stylesheet" href="../ReferencePlayerStyle_copy.css"> -->
-    <link rel="stylesheet" href="x1_styles.css">
+    <link rel="stylesheet" href="UVERefPlayerStyle.css">
+    <link rel="stylesheet" href="../ReferencePlayerStyle.css">
     <script src="../ccOptions.js"></script>
     <script src="UVEMediaPlayer.js"></script>
     <script src="UVEPlayerUI.js"></script>
@@ -67,10 +55,6 @@
               <button class="button" id="fastForwardButton"><img src="../icons/fastForward.png"></button>
               <button class="button" id="muteVideoButton"><img id="muteIcon" src="../icons/unMute.png"></button>
               <button class="button" id="ccButton" ><img id="ccIcon" src="../icons/closedCaptioningDisabled.png"></button>
-              <button class="button" id="ccExpander" class="adina_added"></button>
-              <button class="button" id="sapExpander" class="adina_added"></button>
-              <button class="button" id="adExpander" class="adina_added" style="display: none;"></button>
-              <button id="videoExpander" class="button adina_added"></button>
           </div>
         </div>
         <div id="controlDivNext">
@@ -79,15 +63,11 @@
             </select>
              <select id="ccTracks">
               </select>
-              <select id="ccStyles" size="1">
+              <select id="ccStyles">
                 <option>Option 1</option>
                 <option>Option 2</option>
                 <option>Option 3</option>
               </select>
-              <!-- X1 background and dropdown -->
-              <div id="x1_selection_picker" class="hidden"></div>
-              <div id="x1_selection_bknd"></div>
-
               <select id="videoURLs">
               </select>
               <p id="playerType">UVE PLAYER</p>
@@ -175,9 +155,6 @@
     <div id="positionModal" class="positionModal">
         <p id="positionInSeconds" ></p>
     </div>
-
-    <!-- X1 background -->
-    <div id="x1_overlay_bknd"></div>
 </body>
 
 </html>

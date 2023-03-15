@@ -38,6 +38,9 @@
 #include "hdmiin_shim.h"
 #include "compositein_shim.h"
 #include "ota_shim.h"
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
+#include "rmf_shim.h"
+#endif
 #include "_base64.h"
 #include "base16.h"
 #include "aampgstplayer.h"
@@ -102,11 +105,6 @@
 		AAMPLOG_WARN("Parameter '%s' not within DOUBLE limit. Using default value instead.", param_name); \
 		param_value = default_value; \
 	}
-
-#define CURL_EASY_SETOPT(curl, CURLoption, option)\
-	if (curl_easy_setopt(curl, CURLoption, option) != 0) {\
-		logprintf("Failed at curl_easy_setopt ");\
-	}  //CID:132698,135078 - checked return
 
 #define FOG_REASON_STRING			"Fog-Reason:"
 #define CURLHEADER_X_REASON			"X-Reason:"
@@ -268,6 +266,12 @@ static constexpr const char *ADEVENT_STR[] =
 
 #define ADEVENT2STRING(id) ADEVENT_STR[id - AAMP_EVENT_AD_RESERVATION_START]
 
+static constexpr const char *mMediaFormatName[] =
+{
+    "HLS","DASH","PROGRESSIVE","HLS_MP4","OTA","HDMI_IN","COMPOSITE_IN","SMOOTH_STREAMING", "RMF", "UNKNOWN"
+};
+
+static_assert(sizeof(mMediaFormatName)/sizeof(mMediaFormatName[0]) == (eMEDIAFORMAT_UNKNOWN + 1), "Ensure 1:1 mapping between mMediaFormatName[] and enum MediaFormat");
 /**
  * @brief Get the idle task's source ID
  * @retval source ID
@@ -1148,8 +1152,6 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 
 			if(downloadbps)
 			{
-				long currentProfilebps  = context->aamp->mpStreamAbstractionAAMP->GetVideoBitrate();
-
 				pthread_mutex_lock(&context->aamp->mLock);
 				aamp->mhAbrManager.UpdateABRBitrateDataBasedOnCacheLength(context->aamp->mAbrBitrateData,downloadbps,true);
 				pthread_mutex_unlock(&context->aamp->mLock);
@@ -1208,16 +1210,34 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 			double elapsedTimeMs = (double)(NOW_STEADY_TS_MS - context->downloadStartTime);
 			if( elapsedTimeMs >= context->lowBWTimeout*1000 )
 			{
-				double predictedTotalDownloadTimeMs = elapsedTimeMs*dltotal/dlnow;
-				if( predictedTotalDownloadTimeMs > aamp->mNetworkTimeoutMs )
+				if(dltotal)
 				{
-					AAMPLOG_WARN("lowBWTimeout=%lds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
-								 context->lowBWTimeout,
-								 predictedTotalDownloadTimeMs/1000.0,
-								 aamp->mNetworkTimeoutMs/1000.0 );
-					context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
-					rc = -1;
+					double predictedTotalDownloadTimeMs = elapsedTimeMs*dltotal/dlnow;
+					if( predictedTotalDownloadTimeMs > aamp->mNetworkTimeoutMs )
+					{
+						AAMPLOG_WARN("lowBWTimeout=%lds; predictedTotalDownloadTime=%fs>%fs (network timeout)",
+								context->lowBWTimeout,
+								predictedTotalDownloadTimeMs/1000.0,
+								aamp->mNetworkTimeoutMs/1000.0 );
+						context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+						rc = -1;
+					}
 				}
+				else
+				{
+					if(context->aamp->GetLLDashServiceData()->lowLatencyMode)
+					{
+						long downloadbps = getCurrentContentDownloadSpeed(aamp, context->fileType, context->dlStarted, (long)context->downloadStartTime, dlnow);
+						long currentProfilebps  = context->aamp->mpStreamAbstractionAAMP->GetVideoBitrate();
+						if((downloadbps + DEFAULT_BITRATE_OFFSET_FOR_DOWNLOAD) < currentProfilebps)
+						{
+							AAMPLOG_WARN("Abort download as content is estimated to be expired current BW : %ld bps, min required:%ld bps", downloadbps, currentProfilebps);
+							context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+							rc = -1;
+						}
+					}
+				}
+
 			}
 		}
 	}
@@ -1277,7 +1297,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mState(eSTATE_RELEASED), mMediaFormat(eMEDIAFORMAT_HLS), mPersistedProfileIndex(0), mAvailableBandwidth(0),
 	mDiscontinuityTuneOperationInProgress(false), mContentType(ContentType_UNKNOWN), mTunedEventPending(false),
 	mSeekOperationInProgress(false), mTrickplayInProgress(false), mPendingAsyncEvents(), mCustomHeaders(),
-	mCMCDNextObjectRequest(""),mCMCDBandwidth(0),
 	mManifestUrl(""), mTunedManifestUrl(""), mOrigManifestUrl(), mServiceZone(), mVssVirtualStreamId(),
 	mCurrentLanguageIndex(0),
 	preferredLanguagesString(), preferredLanguagesList(), preferredLabelList(),mhAbrManager(),
@@ -1319,6 +1338,13 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mSessionToken()
 	, vDynamicDrmData()
 	, midFragmentSeekCache(false)
+	, mLiveOffsetDrift(AAMP_DEFAULT_LIVE_OFFSET_DRIFT)
+	, mDisableRateCorrection (false)
+	, mRateCorrectionThread ()
+	, mRateCorrectionWait()
+	, mRateCorrectionTimeoutLock()
+	, mAbortRateCorrection (false)
+	, mCorrectionRate(0)
 	, mPreviousAudioType (FORMAT_INVALID)
 	, mTsbRecordingId()
 	, mthumbIndexValue(-1)
@@ -1369,6 +1395,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsPeriodChangeMarked(false)
 	, mLogObj(NULL)
 	, mEventManager (NULL)
+	, mCMCDCollector(NULL)
 	, mbDetached(false)
 	, mIsFakeTune(false)
 	, mCurrentAudioTrackId(-1)
@@ -1417,6 +1444,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mTextStyle()
 	, mIsEventStreamFound(false)
 	, mFogDownloadFailReason("")
+	, mBlacklistedProfiles()
 {
 	for(int i=0; i<eMEDIATYPE_DEFAULT; i++)
 	{
@@ -1432,6 +1460,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	profiler.SetLogger(mConfig->GetLoggerInstance());
 	// Create the event manager for player instance
 	mEventManager = new AampEventManager(mLogObj);
+	// Create the CMCD collector
+	mCMCDCollector = new AampCMCDCollector(mLogObj);
+
 	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_UserAgent, (std::string )AAMP_USERAGENT_BASE_STRING);
 	int maxDrmSession;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions,maxDrmSession);
@@ -1562,6 +1593,8 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 	pthread_mutex_destroy(&mStreamLock);
 	pthread_mutex_destroy(&mDiscoCompleteLock);
 	pthread_mutexattr_destroy(&mMutexAttr);
+	
+	
 #ifdef AAMP_HLS_DRM
 	aesCtrAttrDataList.clear();
 	pthread_mutex_destroy(&drmParserMutex);
@@ -1592,6 +1625,7 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 	IARM_Bus_RemoveEventHandler("NET_SRV_MGR", IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, getActiveInterfaceEventHandler);
 #endif //IARM_MGR
 	SAFE_DELETE(mEventManager);
+	SAFE_DELETE(mCMCDCollector);
 
 	if (HasSidecarData())
 	{ // has sidecar data
@@ -1892,7 +1926,170 @@ long long PrivateInstanceAAMP::GetVideoPTS(bool bAddVideoBasePTS)
 }
 
 /**
- * @brief Report progress event to listeners
+ * @brief Abort wait for playlist download
+ */
+void PrivateInstanceAAMP::WakeupLatencyCheck()
+{
+	mRateCorrectionWait.notify_one();
+}
+
+/**
+ * @brief Wait until timeout is reached or interrupted
+ */
+void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
+{
+	if(timeInMs > 0 && DownloadsAreEnabled())
+	{
+		std::unique_lock<std::mutex> lock(mRateCorrectionTimeoutLock);
+		if(mRateCorrectionWait.wait_for(lock, std::chrono::milliseconds(timeInMs)) == std::cv_status::timeout)
+		{
+			AAMPLOG_TRACE(" Timeout exceeded Rate Correction Thread : %d", timeInMs); // make it trace
+		}
+		else
+		{
+			mAbortRateCorrection = true;
+			AAMPLOG_INFO(" Aborted Rate Correction Thread"); // TRACE
+		}
+	}
+}
+
+/**
+ * @brief The helper function which perform tuning
+ * Common tune operations used on Tune, Seek, SetRate etc
+ */
+void PrivateInstanceAAMP::StopRateCorrectionWokerthread(void)
+{
+	if (mRateCorrectionThread.joinable())
+	{
+		try
+		{
+			mAbortRateCorrection = true;
+			WakeupLatencyCheck();
+			mRateCorrectionThread.join();
+			mCorrectionRate = AAMP_NORMAL_PLAY_RATE;
+		}
+		catch (exception& exp)
+		{
+			AAMPLOG_WARN("Rate Correction Thread Failed to Stop : %s ", exp.what());
+		}
+	}
+}
+/**
+ * @brief The helper function which perform tuning
+ * Common tune operations used on Tune, Seek, SetRate etc
+ */
+void PrivateInstanceAAMP::StartRateCorrectionWokerthread(void)
+{
+	try
+	{
+		bool newTune = IsNewTune();
+		bool enabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
+		/** Spawn the rate Correction thread if it is live, new tune, thread not started yet, and rate correction enabled **/
+		if(IsLive() && newTune && !mRateCorrectionThread.joinable() && enabled )
+		{
+			mAbortRateCorrection = false;
+			mRateCorrectionThread = std::thread(&PrivateInstanceAAMP::RateCorrectionWokerthread, this);
+			AAMPLOG_INFO("Rate Correction Thread started [%lu]", GetPrintableThreadID(mRateCorrectionThread)); //Print Id - KC
+		}
+	}
+	catch (exception& exp)
+	{
+		AAMPLOG_WARN("Rate Correction Thread Failed to start : %s ", exp.what());
+	}
+}
+
+/**
+ * @brief Rate correction API call in thread to avoid the time delay for setting rate
+ * This is single sleeping thread ; only wake up whenever it needed
+ */
+void PrivateInstanceAAMP::RateCorrectionWokerthread(void)
+{
+	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection))
+	{
+		int latencyMonitorInterval = 0;
+		GETCONFIGVALUE_PRIV(eAAMPConfig_LatencyMonitorInterval,latencyMonitorInterval);
+		while(!mAbortRateCorrection)
+		{
+			mCorrectionRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+			TimedWaitForLatencyCheck(500);
+			while(DownloadsAreEnabled())
+			{
+				InterruptableMsSleep(latencyMonitorInterval * 1000);
+				PrivAAMPState state;
+				double rateRequired = mCorrectionRate;
+				GetState(state);
+				if (!mAbortRateCorrection &&!mDisableRateCorrection && DownloadsAreEnabled() && state == eSTATE_PLAYING)
+				{
+					if(mFirstFragmentTimeOffset < 0)
+					{
+						AAMPLOG_WARN("First Fragment offset time is invalid, rate correction stopped!");
+						mAbortRateCorrection = true;
+						break;
+					}
+
+					double liveTime = (double)mNewSeekInfo.GetInfo().getUpdateTime()/1000.0;
+					double finalProgressTime = (mFirstFragmentTimeOffset) + ((double)mNewSeekInfo.GetInfo().getPosition()/1000.0);
+					double latency = liveTime - finalProgressTime;
+					if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0))
+					{
+						// Correction with progress offset
+						latency += mProgressReportOffset;
+					}
+					AAMPLOG_INFO("Current latency is : %lf and current rate is %f mLiveOffset:%lf mLiveOffsetDrift:%lf", latency, mCorrectionRate, mLiveOffset, mLiveOffsetDrift);
+					if ((latency > (mLiveOffset + mLiveOffsetDrift)))
+					{
+						rateRequired = DEFAULT_MAX_RATE_CORRECTION_SPEED;
+					}
+					else if (latency < (mLiveOffset - mLiveOffsetDrift) )
+					{
+						rateRequired = DEFAULT_MIN_RATE_CORRECTION_SPEED;
+					}
+					else if (((latency <= mLiveOffset) && mCorrectionRate ==  DEFAULT_MAX_RATE_CORRECTION_SPEED) ||
+							((latency >= mLiveOffset) && mCorrectionRate == DEFAULT_MIN_RATE_CORRECTION_SPEED))
+					{
+						rateRequired = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+					}
+
+					if((mCorrectionRate != rateRequired) && mStreamSink && !mDiscontinuityTuneOperationInProgress)
+					{
+						if (mStreamSink->SetPlayBackRate(rateRequired))
+						{
+							mCorrectionRate = rateRequired;
+							UpdateVideoEndMetrics(rateRequired);
+							SendAnomalyEvent(ANOMALY_WARNING, "Rate changed to:%f", rateRequired);
+							AAMPLOG_INFO("Rate Changed to : %f ", rateRequired);
+						}
+					}
+				}
+				else
+				{
+					if (mDisableRateCorrection && DownloadsAreEnabled() && (rate == AAMP_NORMAL_PLAY_RATE && mCorrectionRate != DEFAULT_NORMAL_RATE_CORRECTION_SPEED))
+					{
+						//Rate correction stopping from correction rate so reset to normal
+						if (mStreamSink->SetPlayBackRate(DEFAULT_NORMAL_RATE_CORRECTION_SPEED))
+						{
+							mCorrectionRate = DEFAULT_NORMAL_RATE_CORRECTION_SPEED;
+							AAMPLOG_INFO("Rate Changed to : %f ", mCorrectionRate);
+						}
+						else
+						{
+							AAMPLOG_WARN("Failed to reset the playback rate!!");	
+						}
+
+					}
+				}					
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("Rate Correction Ingored Due to Rate Correction disabled from config;  EnableLiveLatencyCorrection [%d]", 
+		ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection));
+	}
+}
+
+/**
+ * @brief API to correct the latency by adjusting rate of playback
  */
 void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 {
@@ -1983,13 +2180,20 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		**  -A good candidate for future refactoring*/
 		mNewSeekInfo.Update(position, seek_pos_seconds);
 
-		if(this->mAampLLDashServiceData.lowLatencyMode)
+		if(IsLiveStream())
 		{
-			latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition()));
-			if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0))
+			if(mFirstFragmentTimeOffset > 0)
 			{
-				// Correction with progress offset
-				latency += (mProgressReportOffset * 1000);
+				latency = (mNewSeekInfo.GetInfo().getUpdateTime() - ((mFirstFragmentTimeOffset*1000) + mNewSeekInfo.GetInfo().getPosition()));
+				if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && (mProgressReportOffset >= 0))
+				{
+					// Correction with progress offset
+					latency += (mProgressReportOffset * 1000);
+				}
+			}
+			else
+			{
+				latency = end - position;
 			}
 		}
 		double reportFormatPosition = position;
@@ -3298,7 +3502,7 @@ void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instan
 		return;
 	if(instance < eCURLINSTANCE_MAX && curl[instance])
 	{
-		CURL_EASY_SETOPT(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
+		CURL_EASY_SETOPT_LONG(curl[instance], CURLOPT_TIMEOUT_MS, timeoutMS);
 		curlDLTimeout[instance] = timeoutMS;
 	}
 	else
@@ -3485,24 +3689,24 @@ bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::s
 
 		CurlCbContextSyncTime context(this, &buffer);
 
-		curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, SyncTime_write_callback);
-		curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &context);
-		curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOSIGNAL, 1);
+		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, SyncTime_write_callback);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOPROGRESS, 1);
+		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTPGET, 1);
 
-		curl_easy_setopt(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
-		curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_FOLLOWLOCATION, 1);
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer)){
-			curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
 		}
 		else {
-			curl_easy_setopt(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
-			curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
 		}
 
-		curl_easy_setopt(curl, CURLOPT_URL, remoteUrl.c_str());
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
 
 		res = curl_easy_perform(curl);
 		if (res == CURLE_OK)
@@ -3512,15 +3716,6 @@ bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::s
 			{
 				if(buffer.len)
 				{
-					time_t currentTime;
-					currentTime     = time(0);
-					struct tm *localTime;
-					localTime       = localtime(&currentTime);
-					struct tm *stGMT;
-					stGMT           = gmtime(&currentTime);
-					time_t currentTimeGMT;
-					currentTimeGMT  = mktime(stGMT);
-
 					//2021-06-15T18:11:39Z - UTC Zulu
 					//2021-06-15T19:03:48.795Z - <ProducerReferenceTime> WallClk UTC Zulu
 					const char* format = "%Y-%m-%dT%H:%M:%SZ";
@@ -3559,17 +3754,12 @@ bool PrivateInstanceAAMP::GetNetworkTime(enum UtcTiming timingType, const std::s
 bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *buffer, std::string& effectiveUrl,
 				int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
 				bool resetBuffer, MediaType fileType, long *bitrate, int * fogError,
-				double fragmentDurationSeconds,CMCDHeaders *pCMCDMetrics)
+				double fragmentDurationSeconds)
 {
-	MediaType simType = fileType; // remember the requested specific file type; fileType gets overridden later with simple VIDEO/AUDIO
 	MediaTypeTelemetry mediaType = aamp_GetMediaTypeForTelemetry(fileType);
-	std::unordered_map<std::string, std::vector<std::string>> mCMCDCustomHeaders;
-	if((pCMCDMetrics!=NULL) && ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD))
-	{
-		CollectCMCDCustomHeaders(fileType,pCMCDMetrics);
-		pCMCDMetrics->BuildCMCDCustomHeaders(mCMCDCustomHeaders);
 
-	}
+
+
 	int http_code = -1;
 	double fileDownloadTime = 0;
 	bool ret = false;
@@ -3579,7 +3769,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 	struct curl_slist* httpHeaders = NULL;
 	CURLcode res = CURLE_OK;
 	int fragmentDurationMs = (int)(fragmentDurationSeconds*1000);/*convert to MS */
-	if (simType == eMEDIATYPE_INIT_VIDEO || simType == eMEDIATYPE_INIT_AUDIO || simType == eMEDIATYPE_INIT_AUX_AUDIO)
+	if (fileType == eMEDIATYPE_INIT_VIDEO || fileType == eMEDIATYPE_INIT_AUDIO || fileType == eMEDIATYPE_INIT_AUX_AUDIO)
 	{
 		int InitFragmentRetryCount;
 		GETCONFIGVALUE_PRIV(eAAMPConfig_InitFragmentRetryCount,InitFragmentRetryCount);
@@ -3608,7 +3798,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 		std::string uriParameter;
 		GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter,uriParameter);
 		// append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
-		if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (!uriParameter.empty()) && simType == eMEDIATYPE_MANIFEST)
+		if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (!uriParameter.empty()) && fileType == eMEDIATYPE_MANIFEST)
 		{
 			if (remoteUrl.find("?") == std::string::npos)
 			{
@@ -3636,7 +3826,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 				if( curlhost[curlInstance]->isRemotehost && (std::string::npos == mOrigManifestUrl.hostname.find(curlhost[curlInstance]->hostname)) )
 				{
 					CurlStore::GetCurlStoreInstance(this).CurlInit(this, (AampCurlInstance)curlInstance, 1, GetNetworkProxy(), curlhost[curlInstance]->hostname);
-					CURL_EASY_SETOPT(curlhost[curlInstance]->curl, CURLOPT_TIMEOUT_MS, curlDLTimeout[curlInstance]);
+					CURL_EASY_SETOPT_LONG(curlhost[curlInstance]->curl, CURLOPT_TIMEOUT_MS, curlDLTimeout[curlInstance]);
 				}
 			}
 
@@ -3644,53 +3834,79 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 			curl=curlhost[curlInstance]->curl;
 		}
 
-		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaType, simType, curlInstance,fragmentDurationSeconds, remoteUrl.c_str());
+		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaType, fileType, curlInstance,fragmentDurationSeconds, remoteUrl.c_str());
 		CurlCallbackContext context;
 		if (curl)
 		{
-			CURL_EASY_SETOPT(curl, CURLOPT_URL, remoteUrl.c_str());
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
 			if(this->mAampLLDashServiceData.lowLatencyMode)
 			{
-				CURL_EASY_SETOPT(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 				context.remoteUrl = remoteUrl;
 			}
 			context.aamp = this;
 			context.buffer = buffer;
 			context.responseHeaderData = &httpRespHeaders[curlInstance];
-			context.fileType = simType;
+			context.fileType = fileType;
 
-			if(!this->mAampLLDashServiceData.lowLatencyMode)
-			{
-				CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, &context);
-				CURL_EASY_SETOPT(curl, CURLOPT_HEADERDATA, &context);
-			}
+			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
+			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_HEADERDATA, &context);
+
 			if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer))
 			{
-				CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-				CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYHOST, 0);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
 			}
 			else
 			{
-				CURL_EASY_SETOPT(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
-				CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
+				CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
 			}
 
 			CurlProgressCbContext progressCtx;
 			progressCtx.aamp = this;
-			progressCtx.fileType = simType;
+			progressCtx.fileType = fileType;
 			progressCtx.dlStarted = true;
 			progressCtx.fragmentDurationMs = fragmentDurationMs;
 
-			if(this->mAampLLDashServiceData.lowLatencyMode &&
-					(simType == eMEDIATYPE_VIDEO))
+			int bufferedDuration = 0;
+			bool bufferRedStatus = false;
+			int currentBitrate;
+			bool IsMuxed=IsMuxedStream();
+			if (fileType == eMEDIATYPE_VIDEO)
 			{
-				progressCtx.remoteUrl = remoteUrl;
+				if(this->mAampLLDashServiceData.lowLatencyMode)
+				{
+					progressCtx.remoteUrl = remoteUrl;
+				}
+				
+				MediaTrack* mediaTrack =  mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO);
+				if(mediaTrack){
+					bufferRedStatus = (mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED);
+				}
+				currentBitrate  = ((int)mpStreamAbstractionAAMP->GetVideoBitrate())/1000;
+				bufferedDuration =  ((int)mediaTrack->GetBufferedDuration())*1000;
+				IsMuxed = IsMuxedStream();
+				mCMCDCollector->SetTrackData(fileType,bufferRedStatus,bufferedDuration,currentBitrate,IsMuxed);
 			}
+			else if (fileType == eMEDIATYPE_AUDIO)
+			{
+				MediaTrack* mediaTrack =  mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_AUDIO);
+				if(mediaTrack){
+					bufferRedStatus = (mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED);
+				}
+				bufferedDuration = ((int)mediaTrack->GetBufferedDuration())*1000;
+				currentBitrate  = ((int)mpStreamAbstractionAAMP->GetAudioBitrate())/1000;
+				mCMCDCollector->SetTrackData(fileType,bufferRedStatus,bufferedDuration,currentBitrate,IsMuxed);
+				
+			}
+			
+			
 
 			//Disable download stall detection checks for FOG playback done by JS PP
-			if(simType == eMEDIATYPE_MANIFEST || simType == eMEDIATYPE_PLAYLIST_VIDEO ||
-					simType == eMEDIATYPE_PLAYLIST_AUDIO || simType == eMEDIATYPE_PLAYLIST_SUBTITLE ||
-					simType == eMEDIATYPE_PLAYLIST_IFRAME || simType == eMEDIATYPE_PLAYLIST_AUX_AUDIO)
+			if(fileType == eMEDIATYPE_MANIFEST || fileType == eMEDIATYPE_PLAYLIST_VIDEO ||
+			   fileType == eMEDIATYPE_PLAYLIST_AUDIO || fileType == eMEDIATYPE_PLAYLIST_SUBTITLE ||
+			   fileType == eMEDIATYPE_PLAYLIST_IFRAME || fileType == eMEDIATYPE_PLAYLIST_AUX_AUDIO)
 			{
 				// For Manifest file : Set starttimeout to 0 ( no wait for first byte). Playlist/Manifest with DAI
 				// contents take more time , hence to avoid frequent timeout, its set as 0
@@ -3705,45 +3921,26 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 			GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout,progressCtx.stallTimeout);
 
 			// note: win32 curl lib doesn't support multi-part range
-			CURL_EASY_SETOPT(curl, CURLOPT_RANGE, range);
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_RANGE, range);
 
 			if ((httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_COOKIE) && (httpRespHeaders[curlInstance].data.length() > 0))
 			{
 				AAMPLOG_TRACE("Appending cookie headers to HTTP request");
-				//curl_easy_setopt(curl, CURLOPT_COOKIE, cookieHeaders[curlInstance].c_str());
-				CURL_EASY_SETOPT(curl, CURLOPT_COOKIE, httpRespHeaders[curlInstance].data.c_str());
+				CURL_EASY_SETOPT_STRING(curl, CURLOPT_COOKIE, httpRespHeaders[curlInstance].data.c_str());
 			}
-			if ( ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && mCMCDCustomHeaders.size() > 0)
-			{
-				std::string customHeader;
-				std::string headerValue;
-				for (std::unordered_map<std::string, std::vector<std::string>>::iterator it = mCMCDCustomHeaders.begin();it != mCMCDCustomHeaders.end(); it++)
-				{
-					customHeader.clear();
-					headerValue.clear();
-					customHeader.insert(0, it->first);
-					customHeader.push_back(' ');
-					if (it->first.compare("CMCD-Session:") == 0)
-					{
-						headerValue = it->second.at(0);
-					}
-					if (it->first.compare("CMCD-Object:") == 0)
-					{
-						headerValue = it->second.at(0);
-					}
-					if (it->first.compare("CMCD-Request:") == 0)
-					{
-						headerValue = it->second.at(0);
-					}
-					if (it->first.compare("CMCD-Status:") == 0)
-					{
-						headerValue = it->second.at(0);
-					}
-					customHeader.append(headerValue);
-					httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
-				}
 
+			std::vector<std::string> cmcdCustomHeader;
+			mCMCDCollector->CMCDGetHeaders(fileType, cmcdCustomHeader);
+			if (cmcdCustomHeader.size() > 0)
+			{
+				for (std::vector<string>::iterator it=cmcdCustomHeader.begin(); it!=cmcdCustomHeader.end(); ++it)
+				{
+					// Confirm if all headers are coming right before adding it to curl
+                    			AAMPLOG_TRACE("CMCD Header:[%s]",(*it).c_str());
+					httpHeaders = curl_slist_append(httpHeaders, (*it).c_str());
+				}
 			}
+
 			if (mCustomHeaders.size() > 0)
 			{
 				std::string customHeader;
@@ -3794,7 +3991,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					customHeader.append(headerValue);
 					httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 				}
-				if (ISCONFIGSET_PRIV(eAAMPConfig_LimitResolution) && mIsFirstRequestToFOG && mTSBEnabled && eMEDIATYPE_MANIFEST == simType)
+				if (ISCONFIGSET_PRIV(eAAMPConfig_LimitResolution) && mIsFirstRequestToFOG && mTSBEnabled && eMEDIATYPE_MANIFEST == fileType)
 				{
 					std::string customHeader;
 					customHeader.clear();
@@ -3805,7 +4002,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 				}
 
-				if(mTSBEnabled  && eMEDIATYPE_VIDEO == simType)
+				if(mTSBEnabled  && eMEDIATYPE_VIDEO == fileType)
 				{
 					double bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
 					std::string customHeader;
@@ -3813,7 +4010,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					customHeader = "Buffer: " +std::to_string(bufferedDuration);
 					httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 				}
-				if(mTSBEnabled  && eMEDIATYPE_AUDIO == simType)
+				if(mTSBEnabled  && eMEDIATYPE_AUDIO == fileType)
 				{
 					double bufferedAudioDuration = mpStreamAbstractionAAMP->GetBufferedDuration() * 1000.0;
 					std::string customHeader;
@@ -3821,9 +4018,9 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					customHeader = "AudioBuffer: " +std::to_string(bufferedAudioDuration);
 					httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 				}
-				if(mTSBEnabled && (eMEDIATYPE_VIDEO == simType || eMEDIATYPE_AUDIO == simType))
+				if(mTSBEnabled && (eMEDIATYPE_VIDEO == fileType || eMEDIATYPE_AUDIO == fileType))
 				{
-					MediaTrack* mediaTrack = (eMEDIATYPE_VIDEO == simType)?(mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO)):(mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_AUDIO));
+					MediaTrack* mediaTrack = (eMEDIATYPE_VIDEO == fileType)?(mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO)):(mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_AUDIO));
 					if((mediaTrack) && (mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED))
 					{
 						std::string customHeader;
@@ -3833,7 +4030,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					}
 				}
 
-				if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (eMEDIATYPE_VIDEO == simType || eMEDIATYPE_PLAYLIST_VIDEO == simType))
+				if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (eMEDIATYPE_VIDEO == fileType || eMEDIATYPE_PLAYLIST_VIDEO == fileType))
 				{
 					std::string customheaderstr;
 					GETCONFIGVALUE_PRIV(eAAMPConfig_CustomHeader,customheaderstr);
@@ -3844,7 +4041,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					}
 				}
 
-				if (mIsFirstRequestToFOG && mTSBEnabled && eMEDIATYPE_MANIFEST == simType)
+				if (mIsFirstRequestToFOG && mTSBEnabled && eMEDIATYPE_MANIFEST == fileType)
 				{
 					std::string customHeader = "4k: 1";
 					if (ISCONFIGSET_PRIV(eAAMPConfig_Disable4K))
@@ -3856,9 +4053,11 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 
 				if (httpHeaders != NULL)
 				{
-					CURL_EASY_SETOPT(curl, CURLOPT_HTTPHEADER, httpHeaders);
+					CURL_EASY_SETOPT_LIST(curl, CURLOPT_HTTPHEADER, httpHeaders);
 				}
 			}
+
+			long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
 
 			while(downloadAttempt < maxDownloadAttempt)
 			{
@@ -3867,13 +4066,11 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 				if(this->mAampLLDashServiceData.lowLatencyMode)
 				{
 					context.downloadStartTime = progressCtx.downloadStartTime;
-					CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, &context);
-					CURL_EASY_SETOPT(curl, CURLOPT_HEADERDATA, &context);
 				}
 				progressCtx.downloadUpdatedTime = -1;
 				progressCtx.downloadSize = -1;
 				progressCtx.abortReason = eCURL_ABORT_REASON_NONE;
-				CURL_EASY_SETOPT(curl, CURLOPT_PROGRESSDATA, &progressCtx);
+				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
 				if(buffer->ptr != NULL)
 				{
 					AAMPLOG_TRACE("reset length. buffer %p avail %d",  buffer, (int)buffer->avail);
@@ -3917,8 +4114,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					char *effectiveUrlPtr = NULL;
 					if (http_code != 200 && http_code != 204 && http_code != 206)
 					{
-						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorHttp, http_code, simType);
-						print_headerResponse(context.allResponseHeaders, simType);
+						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorHttp, http_code, fileType);
+						print_headerResponse(context.allResponseHeaders, fileType);
 
 						if((http_code >= 500 && http_code != 502) && downloadAttempt < maxDownloadAttempt)
 						{
@@ -3944,8 +4141,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 						{
 							mTSBEnabled = false;
 						}
-						res = curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effectiveUrlPtr);
-						if((simType == eMEDIATYPE_INIT_VIDEO || simType ==  eMEDIATYPE_INIT_AUDIO))
+						effectiveUrlPtr = aamp_CurlEasyGetinfoString(curl, CURLINFO_EFFECTIVE_URL);
+						if((fileType == eMEDIATYPE_INIT_VIDEO || fileType ==  eMEDIATYPE_INIT_AUDIO))
 						{
 							IsoBmffBuffer isobuf(mLogObj);
 							isobuf.setBuffer(reinterpret_cast<uint8_t *>(context.buffer->ptr), context.buffer->len);
@@ -3970,11 +4167,11 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 
 							if(!bParse)
 							{
-								AAMPLOG_ERR("[%d] Cant Find TimeScale. No Box available in Init File !!!", simType);
+								AAMPLOG_ERR("[%d] Cant Find TimeScale. No Box available in Init File !!!", fileType);
 							}
 							else
 							{
-								AAMPLOG_INFO("[%d] Buffer Length: %zu", simType, context.buffer->len);
+								AAMPLOG_INFO("[%d] Buffer Length: %zu", fileType, context.buffer->len);
 
 								//Print box details
 								//isobuf.printBoxes();
@@ -3982,7 +4179,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 								{
 									uint32_t timeScale = 0;
 									isobuf.getTimeScale(timeScale);
-									if(simType == eMEDIATYPE_INIT_VIDEO)
+									if(fileType == eMEDIATYPE_INIT_VIDEO)
 									{
 										AAMPLOG_INFO("Video TimeScale  [%d]", timeScale);
 										SetVidTimeScale(timeScale);
@@ -4026,18 +4223,17 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 						/*in case of fetch fragment this will be non zero value */
 						if (downloadTimeMS > fragmentDurationMs )
 						{
-							AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, fragmentDurationMs, simType);
+							AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, fragmentDurationMs, fileType);
 						}
 					}
 					else if (downloadTimeMS > FRAGMENT_DOWNLOAD_WARNING_THRESHOLD )
 					{
-						AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, simType);
-						print_headerResponse(context.allResponseHeaders, simType);
+						AAMP_LOG_NETWORK_LATENCY (effectiveUrl.c_str(), downloadTimeMS, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, fileType);
+						print_headerResponse(context.allResponseHeaders, fileType);
 					}
 				}
 				else
 				{
-					long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
 					//abortReason for progress_callback exit scenarios
 					// curl sometimes exceeds the wait time by few milliseconds.Added buffer of 10msec
 					isDownloadStalled = ((res == CURLE_PARTIAL_FILE) || (progressCtx.abortReason != eCURL_ABORT_REASON_NONE));
@@ -4048,8 +4244,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					//Log errors due to curl stall/start detection abort
 					if (AAMP_IS_LOG_WORTHY_ERROR(res) || progressCtx.abortReason != eCURL_ABORT_REASON_NONE)
 					{
-						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), simType);
-						print_headerResponse(context.allResponseHeaders, simType);
+						AAMP_LOG_NETWORK_ERROR (remoteUrl.c_str(), AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), fileType);
+						print_headerResponse(context.allResponseHeaders, fileType);
 					}
 
 					//Attempt retry for partial downloads, which have a higher chance to succeed
@@ -4057,13 +4253,13 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 					{
 						if(mpStreamAbstractionAAMP)
 						{
-							if( simType == eMEDIATYPE_MANIFEST ||
-									simType == eMEDIATYPE_AUDIO ||
-									simType == eMEDIATYPE_VIDEO ||
-									simType == eMEDIATYPE_INIT_VIDEO ||
-									simType == eMEDIATYPE_PLAYLIST_AUDIO ||
-									simType == eMEDIATYPE_INIT_AUDIO ||
-									simType == eMEDIATYPE_AUX_AUDIO || simType == eMEDIATYPE_INIT_AUX_AUDIO)
+							if( fileType == eMEDIATYPE_MANIFEST ||
+							   fileType == eMEDIATYPE_AUDIO ||
+							   fileType == eMEDIATYPE_VIDEO ||
+							   fileType == eMEDIATYPE_INIT_VIDEO ||
+							   fileType == eMEDIATYPE_PLAYLIST_AUDIO ||
+							   fileType == eMEDIATYPE_INIT_AUDIO ||
+							   fileType == eMEDIATYPE_AUX_AUDIO || fileType == eMEDIATYPE_INIT_AUX_AUDIO)
 							{ // always retry small, critical fragments on timeout
 								loopAgain = true;
 							}
@@ -4077,7 +4273,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 									// Check if buffer is available and more than timeout interval then only reattempt
 									// Not to retry download if there is no buffer left
 									loopAgain = true;
-									if(simType == eMEDIATYPE_VIDEO)
+									if(fileType == eMEDIATYPE_VIDEO)
 									{
 										if(buffer->len)
 										{
@@ -4130,29 +4326,30 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 				if(downloadTimeMS != 0 && buffer->len != 0)
 					downloadbps = ((long)(buffer->len / downloadTimeMS)*8000);
 
-				curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME , &total);
-				curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connect);
+				total = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_TOTAL_TIME);
+				connect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_CONNECT_TIME);
+				resolve = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_NAMELOOKUP_TIME);
+				startTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_STARTTRANSFER_TIME);
 				connectTime = connect;
 				fileDownloadTime = total;
 				if(res != CURLE_OK || http_code == 0 || http_code >= 400 || total > 2.0 /*seconds*/)
 				{
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
+				// Store the CMCD data irrespetive of logging level
+				mCMCDCollector->CMCDSetNetworkMetrics(fileType , (int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
+
 				if (gpGlobalConfig->logging.isLogLevelAllowed(reqEndLogLevel))
 				{
 					double totalPerformRequest = (double)(downloadTimeMS)/1000;
-					curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &resolve);
-					curl_easy_getinfo(curl, CURLINFO_APPCONNECT_TIME, &appConnect);
-					curl_easy_getinfo(curl, CURLINFO_PRETRANSFER_TIME, &preTransfer);
-					curl_easy_getinfo(curl, CURLINFO_STARTTRANSFER_TIME, &startTransfer);
-					curl_easy_getinfo(curl, CURLINFO_REDIRECT_TIME, &redirect);
-					curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD, &dlSize);
-					curl_easy_getinfo(curl, CURLINFO_REQUEST_SIZE, &reqSize);
-					if((pCMCDMetrics!=NULL) && ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD))
-					{
-						pCMCDMetrics->SetNetworkMetrics((int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
-					}
-
+					
+					appConnect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_APPCONNECT_TIME);
+					preTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_PRETRANSFER_TIME);
+					
+					redirect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_REDIRECT_TIME);
+					dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
+					reqSize = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
+					
 					std::string appName, timeoutClass;
 					if (!mAppName.empty())
 					{
@@ -4166,8 +4363,8 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 						timeoutClass = "(" + to_string(reqSize > 0) + ")";
 					}
 					AAMPLOG(mLogObj, reqEndLogLevel, "WARN", "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s",
-							appName.c_str(), mediaType, simType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
-							(((simType == eMEDIATYPE_VIDEO) || (simType == eMEDIATYPE_INIT_VIDEO) || (simType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
+							appName.c_str(), mediaType, fileType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
+							(((fileType == eMEDIATYPE_VIDEO) || (fileType == eMEDIATYPE_INIT_VIDEO) || (fileType == eMEDIATYPE_PLAYLIST_VIDEO)) ? mpStreamAbstractionAAMP->GetVideoBitrate() : 0), // Video fragment current bitrate
 							((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str())); // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 					if(ui32CurlTrace < 10 )
 					{
@@ -4232,27 +4429,19 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 						mHarvestCountLimit--;
 				}  //CID:168113 - forward null
 			}
-			double expectedContentLength = 0;
-			if ((!context.downloadIsEncoded) && CURLE_OK==curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &expectedContentLength) && ((int)expectedContentLength>0) && ((int)expectedContentLength != (int)buffer->len))
+			ret = true;
+			if( !context.downloadIsEncoded )
 			{
 				//Note: For non-compressed data, Content-Length header and buffer size should be same. For gzipped data, 'Content-Length' will be <= deflated data.
-				AAMPLOG_WARN("AAMP Content-Length=%d actual=%d", (int)expectedContentLength, (int)buffer->len);
-				http_code       =       416; // Range Not Satisfiable
-				ret             =       false; // redundant, but harmless
-				aamp_Free(buffer);
-				memset(buffer, 0x00, sizeof(*buffer));
-			}
-			else
-			{
-				if(fileType == eMEDIATYPE_MANIFEST)
+				double expectedContentLength = aamp_CurlEasyGetinfoDouble( curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+				if( expectedContentLength>0 && (int)expectedContentLength != (int)buffer->len )
 				{
-					fileType = (MediaType)curlInstance;
+					AAMPLOG_WARN("AAMP Content-Length=%d actual=%d", (int)expectedContentLength, (int)buffer->len);
+					http_code       =       416; // Range Not Satisfiable
+					ret             =       false; // redundant, but harmless
+					aamp_Free(buffer);
+					memset(buffer, 0x00, sizeof(*buffer));
 				}
-				else if (remoteUrl.find("iframe") != std::string::npos)
-				{
-					fileType = eMEDIATYPE_IFRAME;
-				}
-				ret = true;
 			}
 		}
 		else
@@ -4375,74 +4564,7 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl,struct GrowableBuffer *b
 		mIsFirstRequestToFOG = false;
 	}
 
-	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableLinearSimulator))
-	{
-		// NEW! note that for simulated playlists, ideally we'd not bother re-downloading playlist above
-
-		AAMPLOG_INFO("*** Simulated Linear URL: %s\n", remoteUrl.c_str()); // Log incoming request
-
-		switch( simType )
-		{
-			case eMEDIATYPE_MANIFEST:
-			{
-				// Reset state after requesting main manifest
-				if( full_playlist_video_ptr )
-				{
-					// Flush old cached video playlist
-
-					free( full_playlist_video_ptr );
-					full_playlist_video_ptr = NULL;
-					full_playlist_video_len = 0;
-				}
-
-				if( full_playlist_audio_ptr )
-				{
-					// Flush old cached audio playlist
-
-					free( full_playlist_audio_ptr );
-					full_playlist_audio_ptr = NULL;
-					full_playlist_audio_len = 0;
-				}
-
-				simulation_start = aamp_GetCurrentTimeMS();
-			}
-				break; /* eMEDIATYPE_MANIFEST */
-
-			case eMEDIATYPE_PLAYLIST_AUDIO:
-			{
-				if( !full_playlist_audio_ptr )
-				{
-					// Cache the full vod audio playlist
-
-					full_playlist_audio_len = buffer->len;
-					full_playlist_audio_ptr = (char *)malloc(buffer->len);
-					memcpy( full_playlist_audio_ptr, buffer->ptr, buffer->len );
-				}
-
-				SimulateLinearWindow( buffer, full_playlist_audio_ptr, full_playlist_audio_len );
-			}
-				break; /* eMEDIATYPE_PLAYLIST_AUDIO */
-
-			case eMEDIATYPE_PLAYLIST_VIDEO:
-			{
-				if( !full_playlist_video_ptr )
-				{
-					// Cache the full vod video playlist
-
-					full_playlist_video_len = buffer->len;
-					full_playlist_video_ptr = (char *)malloc(buffer->len);
-					memcpy( full_playlist_video_ptr, buffer->ptr, buffer->len );
-				}
-
-				SimulateLinearWindow( buffer, full_playlist_video_ptr, full_playlist_video_len );
-			}
-				break; /* eMEDIATYPE_PLAYLIST_VIDEO */
-
-			default:
-				break;
-		}
-	}
-	//Stip downloaded chunked Iframes when ranged requests receives 200 as HTTP response for HLS MP4
+	// Strip downloaded chunked Iframes when ranged requests receives 200 as HTTP response for HLS MP4
 	if( mConfig->IsConfigSet(eAAMPConfig_RepairIframes) && NULL != range && '\0' != range[0] && 200 == http_code && NULL != buffer->ptr && FORMAT_ISO_BMFF == this->mVideoFormat)
 	{
 		AAMPLOG_INFO( "Received HTTP 200 for ranged request (chunked iframe: %s: %s), starting to strip the fragment", range, remoteUrl.c_str() );
@@ -4502,6 +4624,7 @@ char * PrivateInstanceAAMP::GetOnVideoEndSessionStatData()
 		if(ProcessCustomCurlRequest(remoteUrl, &data, &http_error))
 		{
 			// succesfully requested
+			aamp_AppendNulTerminator(&data); // DELIA-60690
 			AAMPLOG_INFO("curl request %s success", remoteUrl.c_str());
 			cJSON *root = cJSON_Parse(data.ptr);
 			if (root == NULL)
@@ -4544,45 +4667,43 @@ bool PrivateInstanceAAMP::ProcessCustomCurlRequest(std::string& remoteUrl, Growa
 	{
 		AAMPLOG_INFO("%s, %d", remoteUrl.c_str(), request);
 
-		CURL_EASY_SETOPT(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
-		CURL_EASY_SETOPT(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
-		CURL_EASY_SETOPT(curl, CURLOPT_FOLLOWLOCATION, 1L);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_TIMEOUT, DEFAULT_CURL_TIMEOUT);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
+		CURL_EASY_SETOPT_LONG(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
-		if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer))
-		{
-			CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+		if(!ISCONFIGSET_PRIV(eAAMPConfig_SslVerifyPeer)){
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 0);
 		}
-		else
-		{
-			CURL_EASY_SETOPT(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
-			CURL_EASY_SETOPT(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+		else {
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSLVERSION, mSupportedTLSVersion);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_SSL_VERIFYPEER, 1);
 		}
-		CURL_EASY_SETOPT(curl, CURLOPT_URL, remoteUrl.c_str());
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
 
 		if(eCURL_GET == request)
 		{
+			assert( buffer );
 			CurlCallbackContext context(this, buffer);
 			memset(buffer, 0x00, sizeof(*buffer));
 			CurlProgressCbContext progressCtx(this, NOW_STEADY_TS_MS);
-
-			CURL_EASY_SETOPT(curl, CURLOPT_NOSIGNAL, 1L);
-			CURL_EASY_SETOPT(curl, CURLOPT_WRITEFUNCTION, write_callback);
-			CURL_EASY_SETOPT(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
-			CURL_EASY_SETOPT(curl, CURLOPT_PROGRESSDATA, &progressCtx);
-			CURL_EASY_SETOPT(curl, CURLOPT_NOPROGRESS, 0L);
-			CURL_EASY_SETOPT(curl, CURLOPT_WRITEDATA, &context);
-			CURL_EASY_SETOPT(curl, CURLOPT_HTTPGET, 1L);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOSIGNAL, 1);
+			CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, write_callback);
+			CURL_EASY_SETOPT_FUNC(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
+			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_NOPROGRESS, 0);
+			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTPGET, 1);
 			res = curl_easy_perform(curl); // DELIA-57728 - avoid out of scope use of progressCtx
 		}
 		else if(eCURL_DELETE == request)
 		{
-			CURL_EASY_SETOPT(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
 			res = curl_easy_perform(curl);
 		}
 		else if(eCURL_POST == request)
 		{
-			CURL_EASY_SETOPT(curl, CURLOPT_POSTFIELDSIZE, pData.size());
-			CURL_EASY_SETOPT(curl, CURLOPT_POSTFIELDS,(uint8_t * )pData.c_str());
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_POSTFIELDSIZE, pData.size());
+			CURL_EASY_SETOPT_STRING(curl, CURLOPT_POSTFIELDS,pData.c_str());
 			res = curl_easy_perform(curl);
 		}
 
@@ -4872,6 +4993,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mFirstVideoFrameDisplayedEnabled = true;
 	}
 
+	/** Enabled rate Correction by default, seek case and live added later point  **/
+	mDisableRateCorrection = false;
 
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 	{
@@ -5005,6 +5128,16 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
 		}
 	}
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
+	else if (mMediaFormat == eMEDIAFORMAT_RMF)
+	{
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_RMF(mLogObj,this, playlistSeekPos, rate);
+		if (NULL == mCdaiObject)
+		{
+			mCdaiObject = new CDAIObject(mLogObj, this);    //Placeholder to reject the SetAlternateContents()
+		}
+	}
+#endif //USE_CPP_THUNDER_PLUGIN_ACCESS
 	else if (mMediaFormat == eMEDIAFORMAT_COMPOSITE)
 	{
 		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_COMPOSITEIN(mLogObj,this, playlistSeekPos, rate);
@@ -5154,6 +5287,15 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mMediaFormat = eMEDIAFORMAT_HLS_MP4;
 		}
 
+		if(mFirstFragmentTimeOffset < 0)
+		{
+			// Update first fragment time, ie time of the tune
+			// For LL-DASH, we update mFirstFragmentTimeOffset as the Absolute start time of fragment.
+			mFirstFragmentTimeOffset = (double)(aamp_GetCurrentTimeMS() - GetDurationMs())/1000.0;
+			AAMPLOG_INFO("[DEBUG] Updated FirstFragmentTimeOffset:%lf", mFirstFragmentTimeOffset);
+			StartRateCorrectionWokerthread();
+		}
+
 		// Enable fragment initial caching. Retune not supported
 		if(tuneType != eTUNETYPE_RETUNE
 			&& GetInitialBufferDuration() > 0
@@ -5276,9 +5418,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		PrivAAMPState state;
 		GetState(state);
-		if((state != eSTATE_ERROR) && (mMediaFormat != eMEDIAFORMAT_OTA))
+		if((state != eSTATE_ERROR) && (mMediaFormat != eMEDIAFORMAT_OTA) && (mMediaFormat != eMEDIAFORMAT_RMF))
 		{
-			/*For OTA this event will be generated from StreamAbstractionAAMP_OTA*/
+			/*For OTA/RMF this event will be generated from StreamAbstractionAAMP_OTA*/
 			SetState(eSTATE_PREPARED);
 			SendMediaMetadataEvent();
 		}
@@ -5360,6 +5502,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	GETCONFIGVALUE_PRIV(eAAMPConfig_AuthToken,mSessionToken);
 	GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage,mSubLanguage);
 	GETCONFIGVALUE_PRIV(eAAMPConfig_TLSVersion,mSupportedTLSVersion);
+	GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffsetDriftCorrectionInterval, mLiveOffsetDrift);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
 	GETCONFIGVALUE_PRIV(eAAMPConfig_LivePauseBehavior,intTmpVar);
 	mPausedBehavior = (PausedBehavior)intTmpVar;
@@ -5393,6 +5536,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	mEventManager->SetFakeTuneFlag(mIsFakeTune);
 
 	mTSBEnabled = strcasestr(mainManifestUrl, "tsb?") && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
+
+	std::string sTraceId = (pTraceID?pTraceID:"unknown");
+	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
+	mCMCDCollector->Initialize((ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && !mTSBEnabled),sTraceId);
+
 	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));
 	if(!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling))
 	{
@@ -5456,7 +5604,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 
 	mMediaFormat = GetMediaFormatType(mainManifestUrl);
 
-	mbUsingExternalPlayer = (mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat== eMEDIAFORMAT_HDMI) || (mMediaFormat==eMEDIAFORMAT_COMPOSITE);
+	mbUsingExternalPlayer = (mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat== eMEDIAFORMAT_HDMI) || (mMediaFormat==eMEDIAFORMAT_COMPOSITE) || \
+		(mMediaFormat == eMEDIAFORMAT_RMF);
 
 	if (NULL == mStreamSink)
 	{
@@ -5721,7 +5870,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	// To check and apply stored video rectangle properties
 	if (mApplyVideoRect)
 	{
-		if ((mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE))
+		if ((mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || \
+			(mMediaFormat == eMEDIAFORMAT_RMF))
 		{
 			mpStreamAbstractionAAMP->SetVideoRectangle(mVideoRect.horizontalPos, mVideoRect.verticalPos, mVideoRect.width, mVideoRect.height);
 		}
@@ -5734,28 +5884,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	}
 	// do not change location of this set, it should be done after sending perviouse VideoEnd data which
 	// is done in TuneHelper->SendVideoEndEvent function.
-	if(pTraceID)
-	{
-		this->mTraceUUID = pTraceID;
-		AAMPLOG_WARN("CMCD Session Id:%s", this->mTraceUUID.c_str());
-	}
-	else
-	{
-		this->mTraceUUID = "unknown";
-	}
-	//generate uuid/session id for applications which do not send id along with tune.
-	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && pTraceID == NULL)
-	{
-		uuid_t uuid;
-		uuid_generate(uuid);
-		char sid[MAX_SESSION_ID_LENGTH];
-		uuid_unparse(uuid, sid);
-		for (char *ptr = sid; *ptr; ++ptr) {
-			*ptr = tolower(*ptr);
-		}
-		this->mTraceUUID = sid;
-		AAMPLOG_WARN("CMCD Session Id generated:%s", this->mTraceUUID.c_str());
-	}
+	this->mTraceUUID = sTraceId;
+
 }
 
 /**
@@ -5789,6 +5919,10 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 	{
 		rc = eMEDIAFORMAT_OTA;
 	}
+	else if(urlStr.rfind("ocap:",0)==0)
+	{
+		rc = eMEDIAFORMAT_RMF;
+	}	
 	else if(urlStr.rfind("http://127.0.0.1", 0) == 0) // starts with localhost
 	{ // where local host is used; inspect further to determine if this locator involves FOG
 
@@ -5925,7 +6059,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 void PrivateInstanceAAMP::CheckForDiscontinuityStall(MediaType mediaType)
 {
 	AAMPLOG_TRACE("Enter mediaType %d", mediaType);
-	long discontinuityTimeoutValue;
+	int discontinuityTimeoutValue;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_DiscontinuityTimeout,discontinuityTimeoutValue);
 	if(!(mStreamSink->CheckForPTSChangeWithTimeout(discontinuityTimeoutValue)))
 	{
@@ -6248,7 +6382,7 @@ AampCacheHandler * PrivateInstanceAAMP::getAampCacheHandler()
  */
 long PrivateInstanceAAMP::GetMaximumBitrate()
 {
-	long lMaxBitrate;
+	int lMaxBitrate;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate,lMaxBitrate);
 	return lMaxBitrate;
 }
@@ -6258,7 +6392,7 @@ long PrivateInstanceAAMP::GetMaximumBitrate()
  */
 long PrivateInstanceAAMP::GetMinimumBitrate()
 {
-	long lMinBitrate;
+	int lMinBitrate;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate,lMinBitrate);
 	return lMinBitrate;
 }
@@ -6268,7 +6402,7 @@ long PrivateInstanceAAMP::GetMinimumBitrate()
  */
 long PrivateInstanceAAMP::GetDefaultBitrate()
 {
-	long defaultBitRate;
+	int defaultBitRate;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_DefaultBitrate,defaultBitRate);
 	return defaultBitRate;
 }
@@ -6278,7 +6412,7 @@ long PrivateInstanceAAMP::GetDefaultBitrate()
  */
 long PrivateInstanceAAMP::GetDefaultBitrate4K()
 {
-	long defaultBitRate;
+	int defaultBitRate;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_DefaultBitrate4K,defaultBitRate);
 	return defaultBitRate;
 }
@@ -6288,7 +6422,7 @@ long PrivateInstanceAAMP::GetDefaultBitrate4K()
  */
 long PrivateInstanceAAMP::GetIframeBitrate()
 {
-	long defaultIframeBitRate;
+	int defaultIframeBitRate;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_IFrameDefaultBitrate,defaultIframeBitRate);
 	return defaultIframeBitRate;
 }
@@ -6298,7 +6432,7 @@ long PrivateInstanceAAMP::GetIframeBitrate()
  */
 long PrivateInstanceAAMP::GetIframeBitrate4K()
 {
-	long defaultIframeBitRate4K;
+	int defaultIframeBitRate4K;
 	GETCONFIGVALUE_PRIV(eAAMPConfig_IFrameDefaultBitrate4K,defaultIframeBitRate4K);
 	return defaultIframeBitRate4K;
 }
@@ -6326,12 +6460,12 @@ char *PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::stri
 /**
  * @brief Fetch a file from CDN and update profiler
  */
-bool PrivateInstanceAAMP::LoadFragment(CMCDHeaders *pCMCDMetrics,ProfilerBucketType bucketType, std::string fragmentUrl,std::string& effectiveUrl, struct GrowableBuffer *fragment,
+bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl,std::string& effectiveUrl, struct GrowableBuffer *fragment,
 					unsigned int curlInstance, const char *range, MediaType fileType,int * http_code, double *downloadTime, long *bitrate,int * fogError, double fragmentDurationSeconds)
 {
 	bool ret = true;
 	profiler.ProfileBegin(bucketType);
-	if (!GetFile(fragmentUrl, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, false,fileType, bitrate, NULL, fragmentDurationSeconds,pCMCDMetrics))
+	if (!GetFile(fragmentUrl, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, false,fileType, bitrate, NULL, fragmentDurationSeconds))
 	{
 		ret = false;
 		profiler.ProfileError(bucketType, *http_code);
@@ -6443,7 +6577,7 @@ std::string PrivateInstanceAAMP::GetThumbnailTracks()
 					if(data[i]->bandwidthBitsPerSecond >= 0)
 					{
 						char buf[32];
-						snprintf(buf, sizeof(buf), "%dx%d",data[i]->resolution.width,data[i]->resolution.height);
+						snprintf(buf,sizeof(buf), "%dx%d",data[i]->resolution.width,data[i]->resolution.height);
 						cJSON_AddStringToObject(item,"RESOLUTION",buf);
 						cJSON_AddNumberToObject(item,"BANDWIDTH",data[i]->bandwidthBitsPerSecond);
 					}
@@ -6633,7 +6767,7 @@ void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 	GetState(state);
 
 	//Differenciate IP vs non IP playback
-	bool isNonIPPlayback = (mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE);
+	bool isNonIPPlayback = (mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_RMF);
 
 	// for ATSC eSTATE_PREPARED is sent when tune is successful, as Closed caption data wont be available till tune and stream check for CC is done,
 	// for IP eSTATE_PREPARED is done after manifest parsing,
@@ -7061,9 +7195,10 @@ void PrivateInstanceAAMP::Stop()
 		mAutoResumeTaskId = AAMP_TASK_ID_INVALID;
 		mAutoResumeTaskPending = false;
 	}
-
+	
 	DisableDownloads();
 	UnblockWaitForDiscontinuityProcessToComplete();
+	StopRateCorrectionWokerthread();
 
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
@@ -7079,9 +7214,12 @@ void PrivateInstanceAAMP::Stop()
 		{ // has sidecar data
 			mpStreamAbstractionAAMP->ResetSubtitle();
 		}
+		// Using StreamLock to make sure this is not interferring with GetFile() from PreCachePlaylistDownloadTask
+		AcquireStreamLock();
 		//Deleting mpStreamAbstractionAAMP here will prevent the extra stop call in TeardownStream()
 		//and will avoid enableDownlaod() call being made unnecessarily
 		SAFE_DELETE(mpStreamAbstractionAAMP);
+		ReleaseStreamLock();
 	}
 
 	TeardownStream(true);
@@ -7119,7 +7257,7 @@ void PrivateInstanceAAMP::Stop()
 		timedMetadata.clear();
 	}
 	mFailureReason="";
-
+	mBlacklistedProfiles.clear();
 
 	// LLAMA-7124 - explicitly invalidate previous position for consistency with previous code
 	mPrevPositionMilliseconds.Invalidate();
@@ -7136,6 +7274,7 @@ void PrivateInstanceAAMP::Stop()
 
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
+	mDisableRateCorrection = false;
 	mMaxLanguageCount = 0; // reset language count
 	//mPreferredAudioTrack = AudioTrackInfo(); // reset
 	mPreferredTextTrack = TextTrackInfo(); // reset
@@ -7148,7 +7287,6 @@ void PrivateInstanceAAMP::Stop()
 		mPreCachePlaylistThreadId.join();
 	}
 	getAampCacheHandler()->StopPlaylistCache();
-
 
 	if (pipeline_paused)
 	{
@@ -8141,6 +8279,26 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(AAMPAbrInfo & info)
 }
 
 /**
+ *   @fn UpdateVideoEndMetrics
+ *
+ *   @param[in] adjustedRate - new rate after correction
+ *   @return void
+ */
+void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
+{
+	if(adjustedRate != (double)AAMP_NORMAL_PLAY_RATE)
+	{
+		pthread_mutex_lock(&mLock);
+		if(mVideoEnd)
+		{
+			mVideoEnd->Increment_RateCorrectionCount();
+		}
+		pthread_mutex_unlock(&mLock);
+	}
+}
+
+
+/**
  * @brief updates download metrics to VideoStat object, this is used for VideoFragment as it takes duration for calcuation purpose.
  */
 void PrivateInstanceAAMP::UpdateVideoEndMetrics(MediaType mediaType, long bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
@@ -8204,145 +8362,6 @@ void PrivateInstanceAAMP::SetCallbackAsPending(guint id)
 		mPendingAsyncEvents[id] = true;
 	}
 	pthread_mutex_unlock(&mEventLock);
-}
-
-/**
- * @brief Collect and send all key-value pairs for CMCD headers.
- */
-void PrivateInstanceAAMP::CollectCMCDCustomHeaders(MediaType fileType,class CMCDHeaders *pCMCDMetrics)
-{
-	if(pCMCDMetrics!=NULL)
-	{
-		MediaType simType = fileType;
-		long temp=0;
-		std::vector<long> bitrateList;
-		pCMCDMetrics->SetSessionId(this->mTraceUUID);
-		//For manifest sessionid and object type is passed as a part of CMCD Headers
-		if(simType == eMEDIATYPE_MANIFEST)
-		{
-			pCMCDMetrics->SetMediaType("MANIFEST");
-		}
-		//For video sessionid,object type,currentvideobitrate,maximum videobitrate,bufferlength are send as a part of CMCD Headers
-		if(simType == eMEDIATYPE_VIDEO)
-		{
-			pCMCDMetrics->SetMediaType("VIDEO");
-			MediaTrack *video = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO);
-			if(video && video->enabled)
-			{
-				if(video->GetBufferStatus() == BUFFER_STATUS_RED)//Bufferstarvation is send only when buffering turns red
-				{
-					pCMCDMetrics->SetBufferStarvation(true);
-				}
-				int videoBufferLength = ((int)video->GetBufferedDuration())*1000;
-				int videoBitrate  = ((int)mpStreamAbstractionAAMP->GetVideoBitrate())/1000;
-				bitrateList = mpStreamAbstractionAAMP->GetVideoBitrates();
-				for(int i = 0; i < bitrateList.size(); i++)
-				{
-					if(bitrateList[i]>temp)
-					{
-						temp=bitrateList[i];
-					}
-				}
-				pCMCDMetrics->SetBitrate(videoBitrate);
-				pCMCDMetrics->SetTopBitrate(temp/1000);
-				pCMCDMetrics->SetNextUrl(mCMCDNextObjectRequest);
-				pCMCDMetrics->SetBufferLength(videoBufferLength);
-				AAMPLOG_INFO("video bufferlength %d video bitrate %d",videoBufferLength,videoBitrate);
-			}
-		}
-		//For audio sessionid,object type,currentaudiobitrate,maximum audiobitrate,bufferlength are send as a part of CMCD Headers
-		if(simType == eMEDIATYPE_AUDIO)
-		{
-			pCMCDMetrics->SetMediaType("AUDIO");
-			MediaTrack *audio = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_AUDIO);
-			if(audio && audio->enabled)
-			{
-				if(audio->GetBufferStatus() == BUFFER_STATUS_RED)//Bufferstarvation is send only when buffering turns red
-				{
-					pCMCDMetrics->SetBufferStarvation(true);
-				}
-			}
-			bitrateList = mpStreamAbstractionAAMP->GetAudioBitrates();
-			for(int i = 0; i < bitrateList.size(); i++)
-			{
-				if(bitrateList[i]>temp)
-				{
-					temp=bitrateList[i];
-				}
-			}
-			int audioBufferLength = ((int)audio->GetBufferedDuration())*1000;
-			pCMCDMetrics->SetBitrate(((int)mCMCDBandwidth)/1000);
-			pCMCDMetrics->SetTopBitrate(temp/1000);
-			pCMCDMetrics->SetNextUrl(mCMCDNextObjectRequest);
-			pCMCDMetrics->SetBufferLength(audioBufferLength);
-			AAMPLOG_INFO("audio bufferlength %daudio bitrate %d",audioBufferLength,((int)mCMCDBandwidth)/1000);
-		}
-		//For subtitle sessionid and object type are send as a part of CMCD Headers
-		if(simType == eMEDIATYPE_SUBTITLE)
-		{
-
-			pCMCDMetrics->SetMediaType("SUBTITLE");
-		}
-		//For init fragment sessionid,object type,bitrate,maximum bitrate are send as a part of CMCD Headers
-		if(simType == eMEDIATYPE_INIT_VIDEO)
-		{
-			pCMCDMetrics->SetMediaType("INIT_VIDEO");
-			int initVideoBitrate  = ((int)mpStreamAbstractionAAMP->GetVideoBitrate())/1000;
-			bitrateList = mpStreamAbstractionAAMP->GetVideoBitrates();
-			for(int i = 0; i < bitrateList.size(); i++)
-			{
-				if(bitrateList[i]>temp)
-				{
-					temp=bitrateList[i];
-				}
-			}
-			pCMCDMetrics->SetBitrate(initVideoBitrate);
-			pCMCDMetrics->SetTopBitrate(temp);
-
-		}
-		if(simType == eMEDIATYPE_INIT_AUDIO)
-		{
-			pCMCDMetrics->SetMediaType("INIT_AUDIO");
-			bitrateList = mpStreamAbstractionAAMP->GetAudioBitrates();
-			for(int i = 0; i < bitrateList.size(); i++)
-			{
-				if(bitrateList[i]>temp)
-				{
-					temp=bitrateList[i];
-				}
-			}
-			pCMCDMetrics->SetBitrate(((int)mCMCDBandwidth)/1000);
-			pCMCDMetrics->SetTopBitrate(temp);
-		}
-		//For muxed streams sessionid,object type,bitrate,maximum bitrate,bufferlength are send as a part of CMCD Headers
-		if(mpStreamAbstractionAAMP->IsMuxedStream())
-		{
-			pCMCDMetrics->SetMediaType("MUXED");
-			bitrateList = mpStreamAbstractionAAMP->GetVideoBitrates();
-			for(int i = 0; i < bitrateList.size(); i++)
-			{
-				if(bitrateList[i]>temp)
-				{
-					temp=bitrateList[i];
-				}
-			}
-			int muxedBitrate  = ((int)mpStreamAbstractionAAMP->GetVideoBitrate())/1000;
-			MediaTrack *video = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO);
-			if(video)
-			{
-				if(video->GetBufferStatus() == BUFFER_STATUS_RED)///Bufferstarvation is send only when buffering turns red
-				{
-					pCMCDMetrics->SetBufferStarvation(true);
-				}
-			}
-			int muxedBufferLength = ((int)mpStreamAbstractionAAMP->GetBufferedDuration())*1000;
-			pCMCDMetrics->SetBitrate(muxedBitrate);
-			pCMCDMetrics->SetTopBitrate(temp/1000);
-			pCMCDMetrics->SetNextUrl(mCMCDNextObjectRequest);
-			pCMCDMetrics->SetBufferLength(muxedBufferLength);
-			AAMPLOG_INFO("muxed bufferlength %dmuxed bitrate %d",muxedBufferLength,muxedBitrate);
-		}
-	}
 }
 
 /**
@@ -9299,7 +9318,12 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 						GrowableBuffer playlistStore ;
 						int http_code;
 						double downloadTime;
-						if(GetFile(newelem.url, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true, newelem.type))
+						bool ret = false;
+						// Using StreamLock to avoid StreamAbstractionAAMP deletion when external player commands or stop call received
+						AcquireStreamLock();
+						ret = GetFile(newelem.url, &playlistStore, playlistEffectiveUrl, &http_code, &downloadTime, NULL, eCURLINSTANCE_PLAYLISTPRECACHE, true, newelem.type);
+						ReleaseStreamLock();
+						if(ret != false)
 						{
 							// If successful download , then insert into Cache
 							getAampCacheHandler()->InsertToPlaylistCache(newelem.url, &playlistStore, playlistEffectiveUrl, false, newelem.type);
@@ -10853,8 +10877,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		}
 
 		/**< Release json object **/
-		delete jsObject;
-		jsObject = NULL;
+		SAFE_DELETE(jsObject);
 
 		if ((preferredAudioAccessibilityNode != inputAudioAccessibilityNode ) || (preferredRenditionString != inputRenditionString ) ||
 		(preferredLabelsString != inputLabelsString) || (inputLanguagesList != preferredLanguagesList ))
@@ -11100,7 +11123,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				clearPreference = true;
 			}
 
-			if(mMediaFormat == eMEDIAFORMAT_OTA)
+			if((mMediaFormat == eMEDIAFORMAT_OTA) || (mMediaFormat == eMEDIAFORMAT_RMF))
 			{
 				mpStreamAbstractionAAMP->SetPreferredAudioLanguages();
 			}
@@ -11260,8 +11283,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 		}
 
 		/**< Release json object **/
-		delete jsObject;
-		jsObject = NULL;
+		SAFE_DELETE(jsObject);
 
 		if((inputTextLanguagesList != preferredTextLanguagesList) || (inputTextRenditionString != preferredTextRenditionString) ||
 		(inputTextAccessibilityNode != preferredTextAccessibilityNode))
@@ -11369,7 +11391,8 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				trackNotEnabled = true;
 			}
 
-			if((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA))
+			if((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA) || \
+				(mMediaFormat == eMEDIAFORMAT_RMF))
 			{
 				/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
 			}
@@ -11829,7 +11852,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	std::string jsonStr;
 	AampJsonObject jsondata;
 	double tmpVar = 0;
-	long tmpLongVar = 0;
+	int tmpLongVar = 0;
 	int maxdownload = 0;
 
 	// langCodePreference
@@ -11890,18 +11913,18 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	//tsbInterruptHandling
 	jsondata.add("tsbInterruptHandling", ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling));
 
-        //minBitrate
-        tmpLongVar = 0;
-        GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate,tmpLongVar);
-        jsondata.add("minBitrate", tmpLongVar);
+	//minBitrate
+	tmpLongVar = 0;
+	GETCONFIGVALUE_PRIV(eAAMPConfig_MinBitrate,tmpLongVar);
+	jsondata.add("minBitrate", tmpLongVar);
 
-        //maxBitrate
-        tmpLongVar = 0;
-        GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate,tmpLongVar);
-        jsondata.add("maxBitrate", tmpLongVar);
+	//maxBitrate
+	tmpLongVar = 0;
+	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxBitrate,tmpLongVar);
+	jsondata.add("maxBitrate", tmpLongVar);
 
-        //enableABR
-        jsondata.add("enableABR", ISCONFIGSET_PRIV(eAAMPConfig_EnableABR));
+	//enableABR
+	jsondata.add("enableABR", ISCONFIGSET_PRIV(eAAMPConfig_EnableABR));
 
 	/*
 	 * Audio and subtitle preference
@@ -12026,6 +12049,7 @@ void PrivateInstanceAAMP::LoadAampAbrConfig()
 	GETCONFIGVALUE_PRIV(eAAMPConfig_ABRThresholdSize,mhAampAbrConfig.abrThresholdSize);
 	GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp,mhAampAbrConfig.abrMaxBuffer);
 	GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown,mhAampAbrConfig.abrMinBuffer);
+	GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheOutlier,mhAampAbrConfig.abrCacheOutlier);
 
 	// Logging level support on aampabr
 

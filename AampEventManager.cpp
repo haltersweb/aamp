@@ -72,7 +72,7 @@ AampEventManager::~AampEventManager()
 		{
 			ListenerData* pListener = mEventListeners[i];
 			mEventListeners[i] = pListener->pNext;
-			delete pListener;
+			SAFE_DELETE(pListener);
 		}
 	}
 	pthread_mutex_unlock(&mMutexVar);
@@ -191,7 +191,7 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListene
 				*ppLast = pListener->pNext;
 				pthread_mutex_unlock(&mMutexVar);
 				AAMPLOG_INFO("Eventtype:%d %p delete %p", eventType, eventListener, pListener);
-				SAFE_DELETE(pListener);
+				delete pListener;
 				return;
 			}
 			ppLast = &(pListener->pNext);

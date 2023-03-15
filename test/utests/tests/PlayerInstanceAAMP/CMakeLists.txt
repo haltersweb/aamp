@@ -35,7 +35,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
-include_directories(${UTESTS_ROOT}/mocks)
+include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES PauseAtTests.cpp
                  PlayerInstanceAAMPTests.cpp)
@@ -46,6 +46,23 @@ add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
+
+if (COVERAGE_ENABLED)
+    include(CodeCoverage)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+    #Set NO_EXCLUDE_DIR to the location of this test so it doesn't get excluded & include common exclude files:
+    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/PlayerInstanceAAMP/*")
+    include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")
+    SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
+                              EXECUTABLE ${EXEC_NAME}
+                              DEPENDENCIES ${EXEC_NAME})
+endif()
+
 
 target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest)
 

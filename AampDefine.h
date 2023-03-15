@@ -36,7 +36,7 @@
 #endif
 
 
-#define AAMP_VERSION "5.2"
+#define AAMP_VERSION "5.3"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
@@ -78,6 +78,7 @@
 #define DEFAULT_BITRATE_OFFSET_FOR_DOWNLOAD 500000		/**< Offset in bandwidth window for checking buffer download expiry */
 #define DEFAULT_INIT_BITRATE_4K 13000000            		/**< Initial bitrate for 4K playback: 13mb ie, 3/4 profile */
 #define AAMP_LIVE_OFFSET 15             			/**< Live offset in seconds */
+#define AAMP_DEFAULT_LIVE_OFFSET_DRIFT (1)          /**< Default value of allowed live offset drift **/
 #define AAMP_DEFAULT_PLAYBACK_OFFSET -99999            		/**< default 'unknown' offset value */
 #define AAMP_CDVR_LIVE_OFFSET 30        			/**< Live offset in seconds for CDVR hot recording */
 #define MIN_DASH_DRM_SESSIONS 3
@@ -142,12 +143,17 @@
 #define DEFAULT_TARGET_LOW_LATENCY			6					/**< Target Default Latency */
 #define DEFAULT_MIN_RATE_CORRECTION_SPEED		0.90f					/**< min Rate correction speed */
 #define DEFAULT_MAX_RATE_CORRECTION_SPEED		1.10f					/**< max Rate correction speed */
-#define AAMP_NORMAL_LL_PLAY_RATE 				1.01f					/**< LL Normal play rate adjusted to 1.01 */
+#ifdef AMLOGIC
+#define DEFAULT_NORMAL_RATE_CORRECTION_SPEED  1.000001f	/**< Live Catchup Normal play rate adjusted to 1.001 in Amlogic */
+#else
+#define DEFAULT_NORMAL_RATE_CORRECTION_SPEED  1.00f	   	/**< Live Catchup Normal play rate adjusted to 1 for others */
+#endif
 #define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragement chunks per track */
 #define DEFAULT_ABR_CHUNK_CACHE_LENGTH			10					/**< Default ABR chunk cache length */
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
 #define DEFAULT_ABR_CHUNK_SPEEDCNT			10					/**< Chunk Speed Count Store Size */
 #define DEFAULT_ABR_ELAPSED_MILLIS_FOR_ESTIMATE		100					/**< Duration(ms) to check Chunk Speed */
+#define AAMP_LLDABR_MIN_BUFFER_VALUE			1.5f
 #define DEFAULT_ABR_BYTES_TRANSFERRED_FOR_ESTIMATE	(512 * 1024)				/**< 512K */
 #define MAX_MDAT_NOT_FOUND_COUNT			500					/**< Max MDAT not found count*/
 #define DEFAULT_CONTENT_PROTECTION_DATA_UPDATE_TIMEOUT	5000					/**< Default Timeout for Content Protection Data Update on Dynamic Key Rotation */
@@ -171,6 +177,9 @@
 #define SECMANGER_SERVICE_BUSY 5
 #define SECMANGER_ACCTOKEN_EXPIRED 8
 #define SECMANGER_ENTITLEMENT_FAILURE 102
+
+#define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
+
 
 //delay for the first speed set event
 #define SECMANGER_SPEED_SET_DELAY 500

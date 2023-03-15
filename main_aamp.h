@@ -1354,7 +1354,7 @@ public:
 	 *   @param[in] stallTimeout curl stall timeout value
 	 *   @return void
 	 */
-	void SetDownloadStallTimeout(long stallTimeout);
+	void SetDownloadStallTimeout(int stallTimeout);
 
 	/**
 	 *   @fn SetDownloadStartTimeout
@@ -1362,7 +1362,7 @@ public:
 	 *   @param[in] startTimeout curl download start timeout
 	 *   @return void
 	 */
-	void SetDownloadStartTimeout(long startTimeout);
+	void SetDownloadStartTimeout(int startTimeout);
 
 	/**
 	 *   @fn SetDownloadLowBWTimeout
@@ -1370,7 +1370,7 @@ public:
 	 *   @param[in] lowBWTimeout curl download low bandwidth timeout
 	 *   @return void
 	 */
-	void SetDownloadLowBWTimeout(long lowBWTimeout);
+	void SetDownloadLowBWTimeout(int lowBWTimeout);
 
 	/**
 	 *   @fn SetPreferredSubtitleLanguage
@@ -1946,7 +1946,7 @@ public:
 	/**
 	 *   @brief To set default timeout for Dynamic ContentProtectionDataUpdate on Key Rotation.
 	 *
-	 *   @param[in] preferred timeout value
+	 *   @param[in] preferred timeout value in seconds
 	 */
 	void SetContentProtectionDataUpdateTimeout(int timeout);
 

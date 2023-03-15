@@ -123,32 +123,29 @@ static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *u
 
 void StreamAbstractionAAMP_PROGRESSIVE::StreamFile( const char *uri, int *http_error )
 { // TODO: move to main_aamp
-
-
-    int http_code = -1;
-    AAMPLOG_INFO("StreamFile: %s\n", uri );
-    CURL *curl = curl_easy_init();
-    if (curl)
-    {
-        StreamWriteCallbackContext context;
-        context.aamp = aamp;
-        context.sentTunedEvent = false;
-
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, StreamWriteCallback );
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&context );
-        curl_easy_setopt(curl, CURLOPT_URL, uri );
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "aamp-progressive/1.0"); // TODO: use same user agent string normally used by AAMP
-        CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
-        if( res == CURLE_OK)
-        { // all data collected
+	int http_code = -1;
+	AAMPLOG_INFO("StreamFile: %s\n", uri );
+	CURL *curl = curl_easy_init();
+	if (curl)
+	{
+		StreamWriteCallbackContext context;
+		context.aamp = aamp;
+		context.sentTunedEvent = false;
+		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, StreamWriteCallback );
+		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, (void *)&context );
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, uri );
+		CURL_EASY_SETOPT_STRING(curl, CURLOPT_USERAGENT, "aamp-progressive/1.0"); // TODO: use same user agent string normally used by AAMP
+		CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
+		if( res == CURLE_OK)
+		{ // all data collected
 			http_code = GetCurlResponseCode(curl);
-        }
-        if (http_error)
-        {
-            *http_error = http_code;
-        }
-        curl_easy_cleanup(curl);
-    }
+		}
+		if (http_error)
+		{
+			*http_error = http_code;
+		}
+		curl_easy_cleanup(curl);
+	}
 }
 
 /**
@@ -281,14 +278,6 @@ void StreamAbstractionAAMP_PROGRESSIVE::GetStreamFormat(StreamOutputFormat &prim
 }
 
 /**
- *  @brief Return MediaTrack of requested type
- */
-MediaTrack* StreamAbstractionAAMP_PROGRESSIVE::GetMediaTrack(TrackType type)
-{
-    return NULL;//mPriv->GetMediaTrack(type);
-}
-
-/**
  *  @brief Get current stream position.
  */
 double StreamAbstractionAAMP_PROGRESSIVE::GetStreamPosition()
@@ -297,35 +286,11 @@ double StreamAbstractionAAMP_PROGRESSIVE::GetStreamPosition()
 }
 
 /**
- *  @brief Get stream information of a profile from subclass.
- */
-StreamInfo* StreamAbstractionAAMP_PROGRESSIVE::GetStreamInfo(int idx)
-{
-    return NULL;
-}
-
-/**
  *  @brief  Get PTS of first sample.
  */
 double StreamAbstractionAAMP_PROGRESSIVE::GetFirstPTS()
 {
     return 0.0;
-}
-
-/**
- *  @brief  Get Start time PTS of first sample.
- */
-double StreamAbstractionAAMP_PROGRESSIVE::GetStartTimeOfFirstPTS()
-{
-    return 0.0;
-}
-
-/**
- *  @brief Get the Buffered duration
- */
-double StreamAbstractionAAMP_PROGRESSIVE::GetBufferedDuration()
-{
-	return -1.0;
 }
 
 /**
@@ -338,85 +303,10 @@ bool StreamAbstractionAAMP_PROGRESSIVE::IsInitialCachingSupported()
 }
 
 /**
- *  @brief Get index of profile corresponds to bandwidth
- */
-int StreamAbstractionAAMP_PROGRESSIVE::GetBWIndex(long bitrate)
-{
-    return 0;
-}
-
-/**
- *  @brief To get the available video bitrates.
- */
-std::vector<long> StreamAbstractionAAMP_PROGRESSIVE::GetVideoBitrates(void)
-{ // STUB
-    return std::vector<long>();
-}
-
-/**
  *  @brief Gets Max Bitrate avialable for current playback.
  */
 long StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { // STUB
     return 0;
 }
-
-/**
- *  @brief To get the available audio bitrates.
- */
-std::vector<long> StreamAbstractionAAMP_PROGRESSIVE::GetAudioBitrates(void)
-{ // STUB
-    return std::vector<long>();
-}
-
-/**
- *  @brief To get the available video tracks.
- */
-std::vector<StreamInfo*> StreamAbstractionAAMP_PROGRESSIVE::GetAvailableVideoTracks(void)
-{ // STUB
-	return std::vector<StreamInfo*>();
-}
-
-/**
- *  @brief To get the available thumbnail tracks.
- */
-std::vector<StreamInfo*> StreamAbstractionAAMP_PROGRESSIVE::GetAvailableThumbnailTracks(void)
-{ // STUB
-	return std::vector<StreamInfo*>();
-}
-
-/**
- *  @brief Function to set thumbnail track for processing
- */
-bool StreamAbstractionAAMP_PROGRESSIVE::SetThumbnailTrack(int thumbnailIndex)
-{
-	(void)thumbnailIndex;	/* unused */
-	return false;
-}
-
-
-std::vector<ThumbnailData> StreamAbstractionAAMP_PROGRESSIVE::GetThumbnailRangeData(double start, double end, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
-{
-	return std::vector<ThumbnailData>();
-}
-
-/**
- *  @brief  Stops injecting fragments to StreamSink.
- */
-void StreamAbstractionAAMP_PROGRESSIVE::StopInjection(void)
-{ // STUB - discontinuity related
-}
-
-/**
- *  @brief  Start injecting fragments to StreamSink.
- */
-void StreamAbstractionAAMP_PROGRESSIVE::StartInjection(void)
-{ // STUB - discontinuity related
-}
-
-
-
-
-
-
 

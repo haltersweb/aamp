@@ -49,8 +49,24 @@ add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
 
+if (CMAKE_XCODE_BUILD_SYSTEM)
+  # XCode schema target
+  xcode_define_schema(${EXEC_NAME})
+endif()
+
+if (COVERAGE_ENABLED)
+    include(CodeCoverage)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+    #Set NO_EXCLUDE_DIR to the location of this test so it doesn't get excluded & include common exclude files:
+    set(NO_EXCLUDE_DIR "${PROJECT_SOURCE_DIR}/tests/UrlEncDecAAMP/*")
+    include("${PROJECT_SOURCE_DIR}/cmake_exclude_file.list")
+    SETUP_TARGET_FOR_COVERAGE_LCOV(NAME ${EXEC_NAME}_coverage
+                              EXECUTABLE ${EXEC_NAME}
+                              DEPENDENCIES ${EXEC_NAME})
+endif()
+
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest)
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${GLIB_LDFLAGS} ${OS_LD_FLAGS} -lgmock -lgtest -lcurl)
 
 gtest_discover_tests(${EXEC_NAME} TEST_PREFIX ${EXEC_NAME}:)
