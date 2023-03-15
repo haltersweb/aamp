@@ -128,6 +128,32 @@ body {
     left: 44.5vw;
 }
 
+#rewindButton::before {
+    content: "";
+    display: block;
+    position: absolute;
+    top: 0.95rem;
+    right: 0.8rem;
+    width: 0;
+    height: 0;
+    border: 0rem solid transparent;
+    border-top-width: 0.6rem;
+    border-bottom-width: 0.6rem;
+    border-right-width: 1.2rem;
+    border-right-color: white;
+}
+
+#rewindButton::after {
+    content: "";
+    display: block;
+    position: absolute;
+    top: 0.95rem;
+    left: 0.9rem;
+    width: 0;
+    height: 1.2rem;
+    border-right: white 0.15rem solid;
+}
+
 #fastForwardButton {
     left: 55.5vw;
 }
@@ -145,6 +171,17 @@ body {
     border-bottom-width: 0.6rem;
     border-left-width: 1.2rem;
     border-left-color: white;
+}
+
+#fastForwardButton::after {
+    content: "";
+    display: block;
+    position: absolute;
+    top: 0.95rem;
+    right: 0.9rem;
+    width: 0;
+    height: 1.2rem;
+    border-left: white 0.15rem solid;
 }
 
 #adExpander {
@@ -185,6 +222,21 @@ body {
     content: "CC";
     position: absolute;
     left: 0.75rem;
+    top: 0.8rem;
+    color: white;
+    font-family: XfinityStandard, sans-serif;
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+#videoExpander {
+    left: 80vw;
+}
+
+#videoExpander::before {
+    content: "TEMP";
+    position: absolute;
+    left: 0;
     top: 0.8rem;
     color: white;
     font-family: XfinityStandard, sans-serif;

@@ -190,6 +190,15 @@ function expandCCStyles(playerControls) {
     playerControls.showCCStyleDropDown()
     console.log('expanding CC styles dropdown.')
 }
+function expandVideos(playerControls) {
+    playerControls.removeFocus();
+    playerControls.currentObj = playerControls.videoFileList;
+    //move focus to the first element in the top navigation bar
+    playerControls.currentPos = playerControls.components.indexOf(playerControls.videoFileList);
+    playerControls.addFocus();
+    playerControls.showDropDown()
+    console.log('expanding videos dropdown.')
+}
 
 //  load video file from select field
 function getVideo(cache_only) {
@@ -216,12 +225,26 @@ function getVideo(cache_only) {
         }
         else
         {
-            resetPlayer();
+            // ADINA added a try catch since resetPlayer() was throwing the error:
+            // UVEMediaPlayer.js:189 Uncaught ReferenceError: AAMPMediaPlayer is not defined
+            try {
+                resetPlayer();
+            }
+            catch(err) {
+                console.warn(err)
+            }
             resetUIOnNewAsset();
             for ( urlIndex = 0; urlIndex < urls.length; urlIndex++) {
                 if (newFileURLContent === urls[urlIndex].url) {
                     console.log("FOUND at index: " + urlIndex);
-                    loadUrl(urls[urlIndex], (0 == urlIndex));
+                    // ADINA added a try catch since resetPlayer() was throwing the error:
+                    // Uncaught TypeError: Cannot read properties of null (reading 'initConfig')
+                    try {
+                        loadUrl(urls[urlIndex], (0 == urlIndex));
+                    }
+                    catch(err) {
+                        console.warn(err)
+                    }
                     break;
                 }
             }
@@ -235,7 +258,7 @@ function getVideo(cache_only) {
 function changeAudioTrack() {
     var audioTrackID =  document.getElementById("audioTracks").value; // get selected Audio track
     //ADINA changed to try catch so as not to error out if no tracks
-    try{
+    try {
         playerObj.setAudioTrack(Number(audioTrackID));
         console.log("Setting Audio track: " + audioTrackID);
     }
@@ -430,6 +453,7 @@ var HTML5PlayerControls = function() {
         this.sapExpander = document.getElementById("sapExpander")
         this.ccExpander = document.getElementById("ccExpander") // change this later to cc toggle
         this.adExpander = document.getElementById("adExpander")
+        this.videoExpander = document.getElementById("videoExpander") // use this for things like show dropdown
         //
         this.currentObj = this.playButton
         this.components = [
@@ -438,10 +462,11 @@ var HTML5PlayerControls = function() {
             this.rwdButton,         //2
             this.playButton,        //3
             this.fwdButton,         //4
-            this.audioTracksList,   //5
-            this.ccTracksList,      //6
-            this.ccStylesList,      //7
-            this.videoFileList      //8
+            this.videoExpander,     //5
+            this.audioTracksList,   //6
+            this.ccTracksList,      //7
+            this.ccStylesList,      //8
+            this.videoFileList      //9
         ]
         //this.currentPos = 3
         this.currentPos = this.components.indexOf(this.playButton);
@@ -510,6 +535,9 @@ var HTML5PlayerControls = function() {
             expandCCStyles() // use the styles dropdown for testing on PC
             //expandCC()
         })
+        this.videoExpander.addEventListener("click", function () {
+            expandVideos()
+        })
         // end ADINA CHANGES
 
         this.seekBar.addEventListener("change", function() {
@@ -556,7 +584,7 @@ var HTML5PlayerControls = function() {
             this.prevCCSelect();
         } else if ((this.components[this.currentPos] == this.ccStylesList) && (this.ccStyleListVisible)) {
             this.prevCCStyleSelect();
-        } else if ((this.components[this.currentPos] == this.playButton) || (this.components[this.currentPos] == this.videoToggleButton) || (this.components[this.currentPos] == this.rwdButton) || (this.components[this.currentPos] == this.skipBwdButton) || (this.components[this.currentPos] == this.skipFwdButton) || (this.components[this.currentPos] == this.fwdButton) || (this.components[this.currentPos] == this.muteButton) || (this.components[this.currentPos] == this.ccButton) || (this.components[this.currentPos] == this.ccExpander) || (this.components[this.currentPos] == this.sapExpander)) {
+        } else if ((this.components[this.currentPos] == this.playButton) || (this.components[this.currentPos] == this.videoToggleButton) || (this.components[this.currentPos] == this.rwdButton) || (this.components[this.currentPos] == this.skipBwdButton) || (this.components[this.currentPos] == this.skipFwdButton) || (this.components[this.currentPos] == this.fwdButton) || (this.components[this.currentPos] == this.muteButton) || (this.components[this.currentPos] == this.ccButton) || (this.components[this.currentPos] == this.ccExpander) || (this.components[this.currentPos] == this.sapExpander) || (this.components[this.currentPos] == this.videoExpander)) {
             //when a keyUp is received from the buttons in the bottom navigation bar
             this.removeFocus();
             this.currentObj = this.audioTracksList;
@@ -593,6 +621,7 @@ var HTML5PlayerControls = function() {
             this.selectListIndex = this.videoFileList.options.length - 1;
         }
         this.videoFileList.options[this.selectListIndex].selected = true;
+        this.changeX1SelectionStatus(this.selectListIndex)
     };
 
     this.nextVideoSelect = function() {
@@ -602,6 +631,7 @@ var HTML5PlayerControls = function() {
             this.selectListIndex = 0;
         }
         this.videoFileList.options[this.selectListIndex].selected = true;
+        this.changeX1SelectionStatus(this.selectListIndex)
     };
 
     this.prevAudioSelect = function() {
@@ -611,6 +641,7 @@ var HTML5PlayerControls = function() {
             this.selectAudioListIndex = this.audioTracksList.options.length - 1;
         }
         this.audioTracksList.options[this.selectAudioListIndex].selected = true;
+        this.changeX1SelectionStatus(this.selectAudioListIndex)
     };
 
     this.nextAudioSelect = function() {
@@ -620,6 +651,7 @@ var HTML5PlayerControls = function() {
             this.selectAudioListIndex = 0;
         }
         this.audioTracksList.options[this.selectAudioListIndex].selected = true;
+        this.changeX1SelectionStatus(this.selectAudioListIndex)
     };
 
     this.prevCCSelect = function() {
@@ -629,6 +661,7 @@ var HTML5PlayerControls = function() {
             this.selectCCListIndex = this.ccTracksList.options.length - 1;
         }
         this.ccTracksList.options[this.selectCCListIndex].selected = true;
+        this.changeX1SelectionStatus(this.selectCCListIndex)
     };
 
     this.nextCCSelect = function() {
@@ -638,6 +671,7 @@ var HTML5PlayerControls = function() {
             this.selectCCListIndex = 0;
         }
         this.ccTracksList.options[this.selectCCListIndex].selected = true;
+        this.changeX1SelectionStatus(this.selectCCListIndex)
     };
 
     this.prevCCStyleSelect = function() {
@@ -647,6 +681,7 @@ var HTML5PlayerControls = function() {
             this.selectCCStyleListIndex = this.ccStylesList.options.length - 1;
         }
         this.ccStylesList.options[this.selectCCStyleListIndex].selected = true;
+        this.changeX1SelectionStatus(this.selectCCStyleListIndex)
     };
 
     this.nextCCStyleSelect = function() {
@@ -656,7 +691,15 @@ var HTML5PlayerControls = function() {
             this.selectCCStyleListIndex = 0;
         }
         this.ccStylesList.options[this.selectCCStyleListIndex].selected = true;
+        this.changeX1SelectionStatus(this.selectCCStyleListIndex)
     };
+
+    // start ADINA EDITS
+    this.changeX1SelectionStatus = function(index) {
+        this.x1_selection_picker.querySelector('.selected').classList.remove('selected')
+        this.x1_selection_picker.querySelectorAll('div')[index].classList.add('selected')
+    }
+    // end ADINA EDITS
 
     this.showDropDown = function() {
         this.dropDownListVisible = true;
@@ -711,6 +754,7 @@ var HTML5PlayerControls = function() {
         this.hideX1SelectionPicker()
     };
 
+    // start ADINA EDITS
     this.showX1SelectionPicker = function(list, index) {
         //abort if no options
         if (list.options.length == 0) {
@@ -735,6 +779,7 @@ var HTML5PlayerControls = function() {
     this.hideX1SelectionPicker = function() {
         this.x1_selection_picker.classList.add('hidden')
     }
+   // end ADINA EDITS
 
 /*     this.ok = function() {
         switch (this.currentPos) {
@@ -836,6 +881,9 @@ var HTML5PlayerControls = function() {
                 fastfwd();
                 break;
             case 5:
+                expandVideos(this)
+                break
+            case 6:
                 if (this.audioListVisible == false) {
                     this.showAudioDropDown();
                 } else {
@@ -851,7 +899,7 @@ var HTML5PlayerControls = function() {
                     // end ADINA CHANGES
                 }
                 break;
-            case 6:
+            case 7:
                 if (this.ccListVisible == false) {
                     this.showCCDropDown();
                 } else {
@@ -867,7 +915,7 @@ var HTML5PlayerControls = function() {
                     // end ADINA CHANGES
                 }
                 break;
-            case 7:  // USING CC STYLE LIST FOR TESTING
+            case 8:  // USING CC STYLE LIST FOR TESTING
                 if (this.ccStyleListVisible == false) {
                     this.showCCStyleDropDown();
                 } else {
@@ -883,12 +931,20 @@ var HTML5PlayerControls = function() {
                     // end ADINA CHANGES
                 }
                 break;
-            case 8:
+            case 9:
                 if (this.dropDownListVisible == false) {
                     this.showDropDown();
                 } else {
                     this.hideDropDown();
                     getVideo(document.getElementById("cacheOnlyCheck").checked);
+                    // start ADINA CHANGES
+                    // go back to the CC button:
+                    this.removeFocus();
+                    this.currentObj = this.videoExpander;
+                    this.currentPos = this.components.indexOf(this.videoExpander);
+                    this.addFocus();
+                    console.log('closing videos list')
+                    // end ADINA CHANGES
                 }
                 break;
             };
