@@ -397,6 +397,9 @@ var HTML5PlayerControls = function() {
         this.ccStylesList = document.getElementById("ccStyles");
         this.jumpPositionInput = document.getElementById("jumpPosition");
 
+        // X1 SELECTION PICKER
+        this.x1_selection_picker = document.getElementById("x1_selection_picker")
+/* 
         this.currentObj = this.playButton;
         this.components = [
             this.playButton,            //0
@@ -419,7 +422,8 @@ var HTML5PlayerControls = function() {
             this.metadataLogButton,     //17
             this.homeContentButton      //18
         ];
-        // this.currentPos = 0;
+        this.currentPos = 0;
+ */
 
         /* start ADINA ADDITIONS */
         // Buttons
@@ -658,22 +662,26 @@ var HTML5PlayerControls = function() {
         this.dropDownListVisible = true;
         var n = this.videoFileList.options.length;
         this.videoFileList.size = n;
+        this.showX1SelectionPicker(this.videoFileList, this.selectListIndex)
     };
 
     this.hideDropDown = function() {
         this.dropDownListVisible = false;
         this.videoFileList.size = 1;
+        this.hideX1SelectionPicker()
     };
 
     this.showAudioDropDown = function() {
         this.audioListVisible = true;
         var n = this.audioTracksList.options.length;
         this.audioTracksList.size = n;
+        this.showX1SelectionPicker(this.audioTracksList, this.selectAudioListIndex)
     };
 
     this.hideAudioDropDown = function() {
         this.audioListVisible = false;
         this.audioTracksList.size = 1;
+        this.hideX1SelectionPicker()
     };
 
     
@@ -681,23 +689,52 @@ var HTML5PlayerControls = function() {
         this.ccListVisible = true;
         var n = this.ccTracksList.options.length;
         this.ccTracksList.size = n;
+        this.showX1SelectionPicker(this.ccTracksList, this.selectCCListIndex)
     };
 
     this.hideCCDropDown = function() {
         this.ccListVisible = false;
         this.ccTracksList.size = 1;
+        this.hideX1SelectionPicker()
     };
 
     this.showCCStyleDropDown = function() {
         this.ccStyleListVisible = true;
         var n = this.ccStylesList.options.length;
         this.ccStylesList.size = n;
+        this.showX1SelectionPicker(this.ccStylesList, this.selectCCStyleListIndex)
     };
 
     this.hideCCStyleDropDown = function() {
         this.ccStyleListVisible = false;
         this.ccStylesList.size = 1;
+        this.hideX1SelectionPicker()
     };
+
+    this.showX1SelectionPicker = function(list, index) {
+        //abort if no options
+        if (list.options.length == 0) {
+            console.log('no options')
+            return false
+        }
+        // clear old options
+        this.x1_selection_picker.innerHTML = ""
+        // populate new options
+        for (const op of list.options) {
+            let op_div = document.createElement('div')
+            op_div.textContent = op.value
+            this.x1_selection_picker.append(op_div)
+        }
+        // mark selected option
+        let ops = this.x1_selection_picker.querySelectorAll('div')
+        ops[index].classList.add('selected')
+        // show X1 Selection Picker
+        this.x1_selection_picker.classList.remove('hidden')
+    }
+
+    this.hideX1SelectionPicker = function() {
+        this.x1_selection_picker.classList.add('hidden')
+    }
 
 /*     this.ok = function() {
         switch (this.currentPos) {

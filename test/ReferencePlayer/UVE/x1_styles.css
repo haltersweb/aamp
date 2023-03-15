@@ -53,6 +53,10 @@ body {
     display: none;
 }
 
+.hidden {
+    display: none;
+}
+
 .button {
     position: absolute;
     left: 0;
@@ -199,6 +203,7 @@ body {
     box-sizing: border-box;
     z-index: -1;
 }
+#x1_selection_picker {}
 
 #x1_selection_bknd {
     background-image: linear-gradient(to right, rgba(0,0,0,.95), rgba(0,0,0,.2));
@@ -235,7 +240,7 @@ body {
     background-color: white;
 }
 
-select {
+#x1_selection_picker, Sselect {
     position: absolute;
     left: 3em;
     top: 3em;
@@ -246,17 +251,22 @@ select {
 }
 
 select[size="1"],
-#ccStyles[size="1"] + #x1_selection_bknd {
+#x1_selection_picker.hidden + #x1_selection_bknd {
     display: none;
 }
 
-option {
+select:not([size="0"]),
+select:not([size="1"]) {
+    visibility: visible; //later change this to hidden after testing
+}
+
+#x1_selection_picker > div, Ooption {
     padding: 1rem;
     background-color: transparent;
     border-radius: 0.3rem;
 }
 
-option:checked {
+#x1_selection_picker .selected, Ooption:checked {
     background-color: gray;
     color: white;
 }
