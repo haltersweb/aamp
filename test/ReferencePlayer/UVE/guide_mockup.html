@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UVE Reference Player</title>
+    <style type="text/css">
+        /* XFINITY Sans Thin */
+        @font-face {
+        font-family: 'XfinityStandard';
+        src: url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.woff2") format("woff2"),
+            url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.woff") format("woff"),
+            url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.ttf") format("truetype");
+        font-weight: 100;
+        font-style: normal;
+        }
+        body {
+            background-image: url(guide.png);
+        }
+    </style>
+    <link rel="stylesheet" href="x1_styles.css">
+    <div id="guide_top">
+        <h1 id="guide_title">Guide / <span>TV Listings</span></h1>
+    </div>
+    <div id="guide_main">
+        <table>
+            <colgroup>
+                <col>
+                <col>
+                <col>
+                <col>
+                <col>
+                <col>
+            </colgroup>
+            <thead>
+                <tr>
+                    <th scope="col">Today <span id="today_date">3/17</span></th>
+                    <th scope="col">5:30p</th>
+                    <th scope="col">6:00p</th>
+                    <th scope="col">6:30p</th>
+                    <th scope="col">7:00p</th>
+                    <th scope="col">7:30p</th>
+                    <th scope="col">8:00p</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th scope="row"><div><span id="channel_usa" class="channel_icon"></span>1707</div></th>
+                    <td><div>Chicago Fire</div></td>
+                    <td colspan="2"><div>Chicago Fire</div></td>
+                    <td colspan="2"><div>Chicago Fire</div></td>
+                    <td><div>Chicago Fire</div></td>
+                </tr>
+                <tr>
+                    <th scope="row"><div><span id="channel_family" class="channel_icon"></span>1709</div></th>
+                    <td><div>Big Buck Bunny</div></td>
+                    <td><div>Big Buck Bunny</div></td>
+                    <td><div>Elephant's Dream</div></td>
+                    <td><div>Elephant's Dream</div></td>
+                    <td><div>Big Buck Bunny</div></td>
+                    <td><div>Big Buck Bunny</div></td>
+                </tr>
+                <tr>
+                    <th scope="row"><div><span id="channel_universal_kids" class="channel_icon"></span>1714</div></th>
+                    <td><div>Cocomelon</div></td>
+                    <td colspan="2"><div>Cocomelon</div></td>
+                    <td colspan="2"><div>Cocomelon</div></td>
+                    <td><div>Cocomelon</div></td>
+                </tr>
+                <tr>
+                    <th scope="row"><div><span id="channel_nbc" class="channel_icon"></span>1715</div></th>
+                    <td><div>The Office</div></td>
+                    <td><div>Parks and Recreation</div></td>
+                    <td><div>Brooklyn Nine-Nine</div></td>
+                    <td colspan="2"><div>Grimm</div></td>
+                    <td><div>Seinfeld</div></td>
+                </tr>
+                <tr>
+                    <th scope="row"><div><span id="channel_syfy" class="channel_icon"></span>1716</div></th>
+                    <td><div>The Twilight Zone</div></td>
+                    <td colspan="2"><div>The Twilight Zone Movie</div></td>
+                    <td><div>Xena: Warrior Princess</div></td>
+                    <td><div>Xena: Warrior Princess</div></td>
+                    <td><div>Xena: Warrior Princess</div></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div id="guide_bottom">
+        <div id="show_img"></div>
+        <div id="show_details">
+            <h2 id="show_title"></h2>
+            <p id="show_descr"></p>
+        </div>
+        <div id="show_meta">
+            <div id="show_run_time"></div>
+            <div id="show_channel"></div>
+            <div id="show_badges">
+                <div id="rating" class="badge"></div>
+                <div id="hd" class="badge"></div>
+                <div id="eng" class="badge"></div>
+                <div id="cc" class="badge"></div>
+            </div>
+        </div>
+    </div>
+</head>
+<body>
+    
+</body>
+</html>

@@ -6,6 +6,7 @@ body {
     background-repeat: no-repeat;
     background-size: cover;
     font-family: XfinityStandard, sans-serif;
+    color: gray;
 }
 
 .adina_added {
@@ -323,5 +324,71 @@ select:not([size="1"]) {
     color: white;
 }
 
-
-
+/*************** GUIDE STYLES *****************/
+#guide_top,
+#guide_main,
+#guide_bottom {
+    display: none;
+    margin-left: 5vw;
+    box-sizing: border-box;
+    /* border: 1px solid yellow; */
+}
+#guide_top {
+    display: block;
+    height: 14vh;
+    padding-top: 7.5vh;
+}
+#guide_top h1 {
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+    font-size: 1.75vw;
+}
+#guide_top span {
+    color: white;
+}
+#guide_main {
+    height: 56vh;
+    display: block;
+}
+#guide_main table,
+#guide_main th,
+#guide_main td {
+    border: 1px solid gray;
+    border-collapse: collapse;
+}
+#guide_main table {
+    width: 100%;
+}
+#guide_main col {
+    width: 14.8%;
+}
+#guide_main col:first-of-type {
+    width: 14%;
+}
+#guide_main tr {
+    height: 10vh;
+    border: 1px solid gray;
+}
+#guide_main th,
+#guide_main td {
+    padding-left: 1vw;
+}
+#guide_main thead {
+    font-size: 1.3vw;
+    text-align: left;
+}
+#guide_main thead tr {
+    height: 6vh;
+}
+#guide_main tbody {
+    font-size: 2vw;
+}
+#guide_main div {
+    width: 100%;
+    overflow: hidden;
+    
+}
+#guide_bottom {
+    height: 30vh;
+}
