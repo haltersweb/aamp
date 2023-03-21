@@ -293,7 +293,7 @@ body {
     background-color: white;
 }
 
-#x1_selection_picker, Sselect {
+#x1_selection_picker {
     position: absolute;
     left: 3em;
     top: 3em;
@@ -310,16 +310,16 @@ select[size="1"],
 
 select:not([size="0"]),
 select:not([size="1"]) {
-    visibility: visible; //later change this to hidden after testing
+    visibility: visible; /* later change this to hidden after testing */
 }
 
-#x1_selection_picker > div, Ooption {
+#x1_selection_picker > div {
     padding: 1rem;
     background-color: transparent;
     border-radius: 0.3rem;
 }
 
-#x1_selection_picker .selected, Ooption:checked {
+#x1_selection_picker .selected {
     background-color: gray;
     color: white;
 }
@@ -433,6 +433,13 @@ select:not([size="1"]) {
 .guide_cell:first-child:after {
     content: none;
 }
+.guide_cell.selected {
+    padding-top: 2.1vh;
+    border-top: .6vh solid white;
+    border-bottom: .6vh solid white;
+    color: cornflowerblue;
+}
+
 #guide_bottom {
     height: 30vh;
 }
