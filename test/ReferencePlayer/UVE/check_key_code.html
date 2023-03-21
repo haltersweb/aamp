@@ -5,16 +5,6 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Check Key Codes</title>
-    <script>
-        document.keyEventHandler = function(e, type) {
-            var keyCode = e.which || e.keyCode;
-            console.log("UVE Pressed keycode" + keyCode);
-            e.preventDefault();
-            let which_key = document.getElementById('which_key')
-            let show_key_code = document.getElementById('show_key_code')
-            show_key_code.textContent = keyCode
-        }
-    </script>
     <style type="text/css">
         /* XFINITY Sans Thin */
         @font-face {
@@ -44,5 +34,17 @@
         <h1>Which key is it?</h1>
         <p id="show_key_code">000</p>
     </div>
+
+    <script>
+        console.log('start')
+        document.addEventListener('keydown', function(e) {
+            var keyCode = e.which || e.keyCode;
+            console.log("UVE Pressed keycode" + keyCode);
+            e.preventDefault();
+            let which_key = document.getElementById('which_key')
+            let show_key_code = document.getElementById('show_key_code')
+            show_key_code.textContent = keyCode
+        });
+    </script>
 </body>
 </html>
