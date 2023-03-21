@@ -422,6 +422,10 @@ var HTML5PlayerControls = function() {
 
         // X1 SELECTION PICKER
         this.x1_selection_picker = document.getElementById("x1_selection_picker")
+        //X1 GUIDE
+        this.x1_guide = document.getElementById("x1_guide")
+        //X1 ENTITY PAGE
+        this.x1_entity_page = document.getElementById("x1_entity_page")
 /* 
         this.currentObj = this.playButton;
         this.components = [
@@ -476,6 +480,8 @@ var HTML5PlayerControls = function() {
         this.audioListVisible = false;
         this.ccListVisible = false;
         this.ccStyleListVisible = false;
+        this.guideVisible = false;  // ADINA added for entity page
+        this.entityVisible = false;  // ADINA added for entity page
         this.selectListIndex = 0;
         this.selectAudioListIndex = 0;
         this.selectCCListIndex = 0;
@@ -621,7 +627,7 @@ var HTML5PlayerControls = function() {
             this.selectListIndex = this.videoFileList.options.length - 1;
         }
         this.videoFileList.options[this.selectListIndex].selected = true;
-        this.changeX1SelectionStatus(this.selectListIndex)
+        this.changeX1GuideSelectionStatus(this.selectListIndex)
     };
 
     this.nextVideoSelect = function() {
@@ -631,7 +637,7 @@ var HTML5PlayerControls = function() {
             this.selectListIndex = 0;
         }
         this.videoFileList.options[this.selectListIndex].selected = true;
-        this.changeX1SelectionStatus(this.selectListIndex)
+        this.changeX1GuideSelectionStatus(this.selectListIndex)
     };
 
     this.prevAudioSelect = function() {
@@ -699,19 +705,24 @@ var HTML5PlayerControls = function() {
         this.x1_selection_picker.querySelector('.selected').classList.remove('selected')
         this.x1_selection_picker.querySelectorAll('div')[index].classList.add('selected')
     }
+
+    this.changeX1GuideSelectionStatus = function(index) {
+        this.x1_guide.querySelector('.selected').classList.remove('selected')
+        this.x1_guide.querySelectorAll('.guide_row')[index + 1].querySelectorAll('.guide_cell')[1].classList.add('selected')
+    }
     // end ADINA EDITS
 
     this.showDropDown = function() {
         this.dropDownListVisible = true;
         var n = this.videoFileList.options.length;
         this.videoFileList.size = n;
-        this.showX1SelectionPicker(this.videoFileList, this.selectListIndex)
+        this.showX1Guide(this.videoFileList, this.selectListIndex)
     };
 
     this.hideDropDown = function() {
         this.dropDownListVisible = false;
         this.videoFileList.size = 1;
-        this.hideX1SelectionPicker()
+        this.hideX1Guide()
     };
 
     this.showAudioDropDown = function() {
@@ -754,7 +765,46 @@ var HTML5PlayerControls = function() {
         this.hideX1SelectionPicker()
     };
 
-    // start ADINA EDITS
+    this.showEntity = function() {
+
+    }
+
+    this.hideEntity = function() {
+
+    }
+
+    this.showX1Guide = function(list, index) {
+        //abort if no options
+        if (list.options.length == 0) {
+            console.log('no options')
+            return false
+        }
+        // build list of grid rows (these rows include the top header grid row)
+        let guide_rows = this.x1_guide.querySelectorAll('.guide_row')
+
+        // populate grid cells with options
+        let j = 1
+        for (const op of list.options) {
+            guide_rows[j].querySelectorAll('.guide_cell')[1].textContent = op.textContent
+            j += 1
+        }
+        // mark selected option
+        guide_rows[index + 1].querySelectorAll('.guide_cell')[1].classList.add('selected')
+
+        // show X1 Guide
+        this.x1_guide.classList.remove('hidden')
+        this.guideVisible = true
+    }
+
+    this.hideX1Guide = function() {
+        this.x1_guide.classList.add('hidden')
+
+        // remove .selected from .grid_cells
+        this.x1_guide.querySelector('.selected').classList.remove('selected')
+
+        this.guideVisible = false
+    }
+
     this.showX1SelectionPicker = function(list, index) {
         //abort if no options
         if (list.options.length == 0) {
@@ -779,7 +829,6 @@ var HTML5PlayerControls = function() {
     this.hideX1SelectionPicker = function() {
         this.x1_selection_picker.classList.add('hidden')
     }
-   // end ADINA EDITS
 
 /*     this.ok = function() {
         switch (this.currentPos) {
@@ -940,15 +989,50 @@ var HTML5PlayerControls = function() {
                     // start ADINA CHANGES
                     // go back to the CC button:
                     this.removeFocus();
-                    this.currentObj = this.videoExpander;
-                    this.currentPos = this.components.indexOf(this.videoExpander);
+                    this.currentObj = this.playButton;
+                    this.currentPos = this.components.indexOf(this.playButton);
                     this.addFocus();
                     console.log('closing videos list')
+                    //play the video you selected
+                    playPause();
                     // end ADINA CHANGES
                 }
                 break;
             };
     };
+
+    this.last = function() {
+        if ((this.dropDownListVisible) || (this.audioListVisible) || (this.ccListVisible) || (this.ccStyleListVisible) || (this.entityVisible)) {
+            switch (true) {
+                case this.dropDownListVisible:
+                    this.hideDropDown()
+                    break
+                case this.audioListVisible:
+                    this.hideAudioDropDown()
+                    break
+                case this.ccListVisible:
+                    this.hideCCDropDown()
+                    break
+                case this.ccStyleListVisible:
+                    this.hideCCStyleDropDown()
+                    break
+                case this.entityVisible:
+                    this.hideEntity()
+                    break
+            }
+            this.removeFocus();
+            this.currentObj = this.playButton;
+            this.currentPos = this.components.indexOf(this.playButton);
+            this.addFocus();
+            console.log('go back to video player')
+        }
+    }
+
+    this.guide = function() {
+        if (this.dropDownListVisible == false) {
+            this.showDropDown();
+        }
+    }
     // end ADINA CHANGES
 
     this.gotoNext = function() {
@@ -1032,6 +1116,15 @@ var HTML5PlayerControls = function() {
                             this.ok();
                         }
                         break;
+                case 73: // Info.  I (keyboard)
+                        if (this.dropDownListVisible == false) {
+                            expandVideos(this)
+                            //move focus to play
+                        }
+                        break
+                case 8: // Last.  Del or Backspace (keyboard)
+                        this.last() // ADINA TBD: what 
+                        break
 		        case 179:
                 case 80: // P
                         playPause();

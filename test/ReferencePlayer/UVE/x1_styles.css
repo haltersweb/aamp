@@ -328,7 +328,6 @@ select:not([size="1"]) {
 
 /*************** GUIDE STYLES *****************/
 #x1_guide {
-    display: none;
     position: absolute;
     left: 0;
     top: 0;
@@ -453,4 +452,8 @@ select:not([size="1"]) {
 
 #guide_bottom {
     height: 30vh;
+}
+
+#x1_entity_page {
+
 }
