@@ -351,29 +351,93 @@ select:not([size="1"]) {
     height: 56vh;
     display: block;
 }
-#guide_main table,
-#guide_main th,
-#guide_main td {
-    border: 1px solid gray;
-    border-collapse: collapse;
+.guide_row {
+    border-bottom: 1px solid gray;
+    border-top: none;
+    display: flex;
+    height: 10vh;
+    flex-wrap: nowrap;
+    box-sizing: border-box;
+    font-size: 2vw;
 }
-#guide_main table {
-    width: 100%;
+.guide_row:first-child {
+    height: 6vh;
+    font-size: 1.3vw;
+    border-top: 1px solid gray;
 }
-#guide_main col {
+.guide_cell {
+    position: relative;
+    border-left: 1px solid gray;
     width: 14.8%;
+    padding-top: 2.7vh;
+    padding-left: 2vw;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
 }
-#guide_main col:first-of-type {
+.guide_cell:first-child {
+    border-left: none;
     width: 14%;
 }
-#guide_main tr {
+.guide_row:not(:first-child) .guide_cell:first-child {
+    padding-top: 3.3vh;
+    padding-right: 1.2vw;
+    background-repeat: no-repeat;
+    background-size: 4vw;
+    background-position: 2vw 3vh;
+    color: white;
+    font-size: 1.6vw;
+    text-align: right;
+}
+#channel_usa {
+    background-image: url("https://www.usanetwork.com/generetic/generated/images/22cb4c7e029716aa34d858d6f9fb18f3.png");
+    background-position-y: 3.5vh;
+}
+#channel_bravo {
+    background-image: url("https://img.nbc.com/sites/nbcunbc/files/images/2019/3/11/Bravo-Logo-All-platform-AssetsBravo-Logo-White-905x300.png?impolicy=nbc_com&imwidth=340&imdensity=1");
+    background-size: 3.5vw;
+}
+#channel_universal_kids {
+    background-image: url("https://www.universalkids.com/assets/images/UniKids-Logo-120x93.png");
+}
+#channel_nbc {
+    background-image: url("https://www.nbc.com/generetic/generated/images/4fac8d8aaa7d8798a512dac0322d8d14.png");
+    background-size: 3vw;
+    background-position-x: 2.75vw;
+}
+#channel_syfy {
+    background-image: url("https://upload.wikimedia.org/wikipedia/commons/c/c6/SYFY_Logo_2020.png?20200702203840");
+    background-position-y: 4.1vh;
+}
+.guide_cell.colspan_2 {
+    width: 29.6%;
+}
+.guide_row:first-child .guide_cell {
+    padding-top: 1.5vh;
+}
+
+.guide_cell::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 4vw;
     height: 10vh;
-    border: 1px solid gray;
+    background: linear-gradient(
+        to left,
+        black,
+        black,
+        rgba(0, 0, 0, 0)
+    );
 }
-#guide_main th,
-#guide_main td {
-    padding-left: 1vw;
+.guide_cell:first-child:after {
+    content: none;
 }
+
+
+
+
+
 #guide_main thead {
     font-size: 1.3vw;
     text-align: left;
@@ -384,11 +448,11 @@ select:not([size="1"]) {
 #guide_main tbody {
     font-size: 2vw;
 }
-#guide_main div {
-    width: 100%;
-    overflow: hidden;
-    
-}
+
+
+
+
+
 #guide_bottom {
     height: 30vh;
 }
