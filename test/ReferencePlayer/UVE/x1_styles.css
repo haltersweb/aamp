@@ -433,26 +433,6 @@ select:not([size="1"]) {
 .guide_cell:first-child:after {
     content: none;
 }
-
-
-
-
-
-#guide_main thead {
-    font-size: 1.3vw;
-    text-align: left;
-}
-#guide_main thead tr {
-    height: 6vh;
-}
-#guide_main tbody {
-    font-size: 2vw;
-}
-
-
-
-
-
 #guide_bottom {
     height: 30vh;
 }
