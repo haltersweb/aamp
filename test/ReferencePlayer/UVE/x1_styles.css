@@ -37,7 +37,9 @@ body {
 #okButton,
 #audioTitle,
 #ccTitle,
-#ccButton {
+#ccButton,
+#currentDuration,
+#totalDuration {
     display: none;
 }
 
@@ -325,6 +327,15 @@ select:not([size="1"]) {
 }
 
 /*************** GUIDE STYLES *****************/
+#x1_guide {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 20;
+    height: 100vh;
+    background-color: black;
+}
 #guide_top,
 #guide_main,
 #guide_bottom {
