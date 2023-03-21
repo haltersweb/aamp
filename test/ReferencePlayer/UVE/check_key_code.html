@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Key Codes</title>
+    <script>
+        document.keyEventHandler = function(e, type) {
+            var keyCode = e.which || e.keyCode;
+            console.log("UVE Pressed keycode" + keyCode);
+            e.preventDefault();
+            let which_key = document.getElementById('which_key')
+            let show_key_code = document.getElementById('show_key_code')
+            show_key_code.textContent = keyCode
+        }
+    </script>
+    <style type="text/css">
+        /* XFINITY Sans Thin */
+        @font-face {
+        font-family: 'XfinityStandard';
+        src: url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.woff2") format("woff2"),
+            url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.woff") format("woff"),
+            url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.ttf") format("truetype");
+        font-weight: 100;
+        font-style: normal;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            margin-top: 45vh;
+            background-color: black;
+            color: white;
+            font-family: XfinityStandard, sans-serif;
+            text-align: center;
+        }
+        #show_key_code {
+            font-size: 2vw;
+        }
+    </style>
+</head>
+<body>
+    <div id="which_key">
+        <h1>Which key is it?</h1>
+        <p id="show_key_code">000</p>
+    </div>
+</body>
+</html>
