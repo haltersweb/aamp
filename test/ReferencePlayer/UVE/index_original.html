@@ -24,23 +24,13 @@
 <head>
     <meta charset="utf-8">
     <title>UVE Reference Player</title>
-    <style type="text/css">
-        /* XFINITY Sans Thin */
-        @font-face {
-        font-family: 'XfinityStandard';
-        src: url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.woff2") format("woff2"),
-            url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.woff") format("woff"),
-            url("https://edge.static-assets.top.comcast.net/staticsites/fonts/latest/Xfinity_Standard/XfinityStandard-Thin.ttf") format("truetype");
-        font-weight: 100;
-        font-style: normal;
-        }
-    </style>
-    <link rel="stylesheet" href="styles_x1.css">
+    <link rel="stylesheet" href="UVERefPlayerStyle.css">
+    <link rel="stylesheet" href="../ReferencePlayerStyle.css">
     <script src="../ccOptions.js"></script>
     <script src="UVEMediaPlayer.js"></script>
-    <script src="UVEPlayerUI_x1.js"></script>
-    <script src="UVERefPlayer_demo.js"></script>
-    <script src="../URLs_demo.js"></script>
+    <script src="UVEPlayerUI.js"></script>
+    <script src="UVERefPlayer.js"></script>
+    <script src="../URLs.js"></script>
 </head>
 
 <body>
@@ -65,10 +55,6 @@
               <button class="button" id="fastForwardButton"><img src="../icons/fastForward.png"></button>
               <button class="button" id="muteVideoButton"><img id="muteIcon" src="../icons/unMute.png"></button>
               <button class="button" id="ccButton" ><img id="ccIcon" src="../icons/closedCaptioningDisabled.png"></button>
-              <button class="button" id="ccExpander" class="adina_added"></button>
-              <button class="button" id="sapExpander" class="adina_added"></button>
-              <button class="button" id="adExpander" class="adina_added" style="display: none;"></button>
-              <button id="videoExpander" class="button adina_added"></button>
           </div>
         </div>
         <div id="controlDivNext">
@@ -77,15 +63,11 @@
             </select>
              <select id="ccTracks">
               </select>
-              <select id="ccStyles" size="1">
+              <select id="ccStyles">
                 <option>Option 1</option>
                 <option>Option 2</option>
                 <option>Option 3</option>
               </select>
-              <!-- X1 background and dropdown -->
-              <div id="x1_selection_picker" class="hidden"></div>
-              <div id="x1_selection_bknd"></div>
-
               <select id="videoURLs">
               </select>
               <p id="playerType">UVE PLAYER</p>
@@ -113,83 +95,6 @@
               <p id="audioTitle">AUDIO</p>
               <p id="ccTitle">CC</p>
           </div>
-        </div>
-    </div>
-
-    <!-- The X1 Entity Page overlay -->
-    <div id="x1_entity_page" class="hidden"></div>
-
-    <!-- The X1 guide overlay -->
-    <div id="x1_guide" class="hidden">
-        <div id="guide_top">
-            <h1 id="guide_title">Guide / <span>TV Listings</span></h1>
-        </div>
-        <div id="guide_main">
-            <div class="guide_row">
-                <div class="guide_cell">Today <span id="today_date">3/17</span></div>
-                <div class="guide_cell">5:30p</div>
-                <div class="guide_cell">6:00p</div>
-                <div class="guide_cell">6:30p</div>
-                <div class="guide_cell">7:00p</div>
-                <div class="guide_cell">7:30p</div>
-                <div class="guide_cell">8:00p</div>
-            </div>
-            <div class="guide_row">
-                <div class="guide_cell" id="channel_usa">1707</div>
-                <div class="guide_cell">Chicago Fire</div>
-                <div class="guide_cell colspan_2">As the World Turns</div>
-                <div class="guide_cell colspan_2">Emergency!</div>
-                <div class="guide_cell">Columbo</div>
-            </div>
-            <div class="guide_row">
-                <div class="guide_cell" id="channel_bravo">1709</div>
-                <div class="guide_cell">Big Buck Bunny</div>
-                <div class="guide_cell">Luxo Jr.</div>
-                <div class="guide_cell">Luxo Jr.</div>
-                <div class="guide_cell">Elephant's Dream</div>
-                <div class="guide_cell">Elephant's Dream</div>
-                <div class="guide_cell">Big Buck Bunny</div>
-            </div>
-            <div class="guide_row">
-                <div class="guide_cell" id="channel_universal_kids">1714</div>
-                <div class="guide_cell">Cocomelon</div>
-                <div class="guide_cell colspan_2">Cocomelon</div>
-                <div class="guide_cell colspan_2">Mighty Mike</div>
-                <div class="guide_cell">Mighty Mike</div>
-            </div>
-            <div class="guide_row">
-                <div class="guide_cell" id="channel_nbc">1715</div>
-                <div class="guide_cell">The Office</div>
-                <div class="guide_cell">Parks and Recreation</div>
-                <div class="guide_cell">Brooklyn Nine-Nine</div>
-                <div class="guide_cell colspan_2">Grimm</div>
-                <div class="guide_cell">Seinfeld</div>
-            </div>
-            <div class="guide_row">
-                <div class="guide_cell" id="channel_syfy">1716</div>
-                <div class="guide_cell">The Twilight Zone</div>
-                <div class="guide_cell colspan_2">The Twilight Zone Movie</div>
-                <div class="guide_cell">Xena: Warrior Princess</div>
-                <div class="guide_cell">Xena: Warrior Princess</div>
-                <div class="guide_cell">Xena: Warrior Princess</div>
-            </div>
-        </div>
-        <div id="guide_bottom">
-            <div id="show_img"></div>
-            <div id="show_details">
-                <h2 id="show_title"></h2>
-                <p id="show_descr"></p>
-            </div>
-            <div id="show_meta">
-                <div id="show_run_time"></div>
-                <div id="show_channel"></div>
-                <div id="show_badges">
-                    <div id="rating" class="badge"></div>
-                    <div id="hd" class="badge"></div>
-                    <div id="eng" class="badge"></div>
-                    <div id="cc" class="badge"></div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -250,9 +155,6 @@
     <div id="positionModal" class="positionModal">
         <p id="positionInSeconds" ></p>
     </div>
-
-    <!-- X1 background -->
-    <div id="x1_overlay_bknd"></div>
 </body>
 
 </html>
