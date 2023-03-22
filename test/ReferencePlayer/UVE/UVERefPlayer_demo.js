@@ -331,7 +331,7 @@ function playbackStateChanged(event) {
         case playerStatesEnum.initialized:
             playerState = playerStatesEnum.initialized;
             var videoTracksAvailable = playerObj.getAvailableVideoTracks();
-            var audioTracksAvailable = playerObj.getAvailableAudioTracks();
+            var audioTracksAvailable = playerObj.getAvailableAudioTracks(); // gets the data from the manifest and builds JSON
             var textTracksAvailable = playerObj.getAvailableTextTracks();
             console.log("Available audio tracks: " + audioTracksAvailable);
             console.log("Available text tracks: " + textTracksAvailable);
@@ -376,13 +376,13 @@ function playbackStateChanged(event) {
                     }
                 }
 
-                var audioTrackList = JSON.parse(audioTracksAvailable);
+                var audioTrackList = JSON.parse(audioTracksAvailable); // 
 
                 // Iteratively adding all the options to audioTracks
                 for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
                     var option = document.createElement("option");
                     option.value = trackNo;
-                    option.text = audioTrackList[trackNo].language + " " + audioTrackList[trackNo].rendition;
+                    option.text = audioTrackList[trackNo].language + " " + audioTrackList[trackNo].codec;
                     audioTracks.add(option);
                 }
             }
