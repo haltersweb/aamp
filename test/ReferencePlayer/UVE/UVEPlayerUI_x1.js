@@ -455,18 +455,18 @@ var HTML5PlayerControls = function() {
         /* start ADINA ADDITIONS */
         // Buttons
         this.sapExpander = document.getElementById("sapExpander")
-        this.ccExpander = document.getElementById("ccExpander") // change this later to cc toggle
+        this.ccExpander = document.getElementById("ccExpander")
         this.adExpander = document.getElementById("adExpander")
-        this.videoExpander = document.getElementById("videoExpander") // use this for things like show dropdown
+        // this.videoExpander = document.getElementById("videoExpander") // use this for things like show dropdown
         //
         this.currentObj = this.playButton
         this.components = [
             this.sapExpander,       //0
-            this.ccExpander,        //1  // change this later to cc toggle
+            this.ccExpander,        //1
             this.rwdButton,         //2
             this.playButton,        //3
             this.fwdButton,         //4
-            this.videoExpander,     //5
+            this.ccButton, //this.videoExpander,     //5
             this.audioTracksList,   //6
             this.ccTracksList,      //7
             this.ccStylesList,      //8
@@ -508,7 +508,7 @@ var HTML5PlayerControls = function() {
             mutePlayer();
         });
 
-        // Event listener for the mute button
+        // Event listener for the cc toggle button
         this.ccButton.addEventListener("click", function() {
             toggleCC();
         });
@@ -538,12 +538,14 @@ var HTML5PlayerControls = function() {
             expandSAP()
         })
         this.ccExpander.addEventListener("click", function() {
-            expandCCStyles() // use the styles dropdown for testing on PC
-            //expandCC()
+            // expandCCStyles() // use the styles dropdown for testing on PC
+            expandCC()
         })
+/* 
         this.videoExpander.addEventListener("click", function () {
             expandVideos()
         })
+*/
         // end ADINA CHANGES
 
         this.seekBar.addEventListener("change", function() {
@@ -917,8 +919,8 @@ var HTML5PlayerControls = function() {
                 expandSAP(this)
                 break
             case 1:
-                expandCCStyles(this) // use the styles dropdown for testing on PC
-                //expandCC(this)
+                // expandCCStyles(this) // use the styles dropdown for testing on PC
+                expandCC(this)
                 break
             case 2:
                 fastrwd()
@@ -930,7 +932,8 @@ var HTML5PlayerControls = function() {
                 fastfwd();
                 break;
             case 5:
-                expandVideos(this)
+                // expandVideos(this)
+                toggleCC()
                 break
             case 6:
                 if (this.audioListVisible == false) {

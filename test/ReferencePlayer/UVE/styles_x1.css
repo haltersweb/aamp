@@ -37,7 +37,7 @@ body {
 #okButton,
 #audioTitle,
 #ccTitle,
-#ccButton,
+/* #ccButton, */
 #currentDuration,
 #totalDuration {
     display: none;
@@ -232,10 +232,12 @@ body {
     font-weight: bold;
 }
 
+#ccButton,
 #videoExpander {
     left: 80vw;
 }
 
+#ccButton::before,
 #videoExpander::before {
     content: "TEMP";
     position: absolute;
@@ -245,6 +247,11 @@ body {
     font-family: XfinityStandard, sans-serif;
     font-size: 1.1rem;
     font-weight: bold;
+}
+
+#ccButton::before {
+    content: "CC+";
+    left: 0.5rem;
 }
 
 #x1_overlay_bknd,

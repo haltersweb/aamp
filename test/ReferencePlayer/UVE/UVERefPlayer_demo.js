@@ -382,7 +382,8 @@ function playbackStateChanged(event) {
                 for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
                     var option = document.createElement("option");
                     option.value = trackNo;
-                    option.text = audioTrackList[trackNo].language + " " + audioTrackList[trackNo].codec;
+                    let atl = audioTrackList[trackNo]
+                    option.text = atl.name + " | " + atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type + " | " + atl.string_value;
                     audioTracks.add(option);
                 }
             }
