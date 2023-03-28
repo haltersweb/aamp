@@ -472,7 +472,7 @@ var HTML5PlayerControls = function() {
             this.audioTracksList,   //6
             this.ccTracksList,      //7
             this.ccStylesList,      //8
-            this.videoFileList      //9
+            this.videoFileList      //9g
         ]
         //this.currentPos = 3
         this.currentPos = this.components.indexOf(this.playButton);
