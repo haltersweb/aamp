@@ -379,6 +379,7 @@ function playbackStateChanged(event) {
                 var audioTrackList = JSON.parse(audioTracksAvailable); // 
 
                 // Iteratively adding all the options to audioTracks
+/* 
                 for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
                     var option = document.createElement("option");
                     option.value = trackNo;
@@ -386,6 +387,39 @@ function playbackStateChanged(event) {
                     option.text = atl.name + " | " + atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type + " | " + atl.string_value;
                     audioTracks.add(option);
                 }
+ */
+                for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
+                    let atl = audioTrackList[trackNo]
+                    if (atl.codec == "ec-3") {
+                        let lang = ""
+                        let modifier = ""
+                        switch(atl.language) {
+                            case 'en':
+                                modifier = 'English'
+                                break
+                            case 'es':
+                                modifier = 'Spanish'
+                                break
+                            case 'fr':
+                                modifier = 'French'
+                                break
+                        }
+                        switch(true) {
+                            case (atl.accessibilityType.includes('description')):
+                                modifier = 'Audio Description'
+                                break
+                            case (atl.accessibilityType.includes('enhanced')):
+                                modifier = 'Enhanced Audio'
+                                break
+                        }
+                        var option = document.createElement("option");
+                        option.text = lang + modifier
+                        option.value = trackNo;
+                        audioTracks.add(option);
+                    }
+                }
+
+
             }
 
             break;
