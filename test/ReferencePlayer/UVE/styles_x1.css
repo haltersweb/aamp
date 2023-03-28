@@ -90,9 +90,9 @@ body {
 #videoToggleButton,
 #skipBackwardButton,
 #skipForwardButton,
-#muteVideoButton/* ,
+#muteVideoButton,
 #ccExpander,
-#ccStylesExpander */ {
+#ccStylesExpander {
     display: none;
 }
 
