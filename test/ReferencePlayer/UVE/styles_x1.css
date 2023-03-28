@@ -92,7 +92,9 @@ body {
 #videoToggleButton,
 #skipBackwardButton,
 #skipForwardButton,
-#muteVideoButton {
+#muteVideoButton,
+#ccExpander,
+#adExpander {
     display: none;
 }
 
@@ -188,7 +190,7 @@ body {
 }
 
 #adExpander {
-    left: 9vw;
+    left: 5vw;
 }
 
 #adExpander::before {
@@ -217,11 +219,13 @@ body {
     font-weight: bold;
 }
 
-#ccExpander {
+#ccExpander,
+#ccButton {
     left: 20vw;
 }
 
-#ccExpander::before {
+#ccExpander::before,
+#ccButton::before {
     content: "CC";
     position: absolute;
     left: 0.75rem;
@@ -232,26 +236,9 @@ body {
     font-weight: bold;
 }
 
-#ccButton,
-#videoExpander {
-    left: 80vw;
-}
-
-#ccButton::before,
-#videoExpander::before {
-    content: "TEMP";
-    position: absolute;
-    left: 0;
-    top: 0.8rem;
-    color: white;
-    font-family: XfinityStandard, sans-serif;
-    font-size: 1.1rem;
-    font-weight: bold;
-}
-
-#ccButton::before {
+#ccExpander {
     content: "CC+";
-    left: 0.5rem;
+    left: 0vw;
 }
 
 #x1_overlay_bknd,
