@@ -89,7 +89,9 @@ function toggleCC() {
             playerObj.setTextStyleOptions(JSON.stringify(ccOptions));
         } else {
             XREReceiver.onEvent("onClosedCaptions", { enable: true });
-            XREReceiver.onEvent("onClosedCaptions", { setOptions: xreCCOptions});
+            // XREReceiver.onEvent("onClosedCaptions", { setOptions: xreCCOptions});
+            //set this to xreCCOptions1 (large) instead of xreCCOptions
+            XREReceiver.onEvent("onClosedCaptions", { setOptions: xreCCOptions1});
         }
         ccStatus = true;
         document.getElementById("ccIcon").src = "../icons/closedCaptioning.png";
@@ -457,16 +459,16 @@ var HTML5PlayerControls = function() {
         this.sapExpander = document.getElementById("sapExpander")
         this.ccExpander = document.getElementById("ccExpander")
         this.adExpander = document.getElementById("adExpander")
-        // this.videoExpander = document.getElementById("videoExpander") // use this for things like show dropdown
         //
+
         this.currentObj = this.playButton
         this.components = [
             this.sapExpander,       //0
-            this.ccExpander,        //1
+            this.ccButton,          //1
             this.rwdButton,         //2
             this.playButton,        //3
             this.fwdButton,         //4
-            this.ccButton, //this.videoExpander,     //5
+            this.ccExpander,        //5
             this.audioTracksList,   //6
             this.ccTracksList,      //7
             this.ccStylesList,      //8
@@ -541,11 +543,7 @@ var HTML5PlayerControls = function() {
             // expandCCStyles() // use the styles dropdown for testing on PC
             expandCC()
         })
-/* 
-        this.videoExpander.addEventListener("click", function () {
-            expandVideos()
-        })
-*/
+
         // end ADINA CHANGES
 
         this.seekBar.addEventListener("change", function() {
@@ -592,7 +590,7 @@ var HTML5PlayerControls = function() {
             this.prevCCSelect();
         } else if ((this.components[this.currentPos] == this.ccStylesList) && (this.ccStyleListVisible)) {
             this.prevCCStyleSelect();
-        } else if ((this.components[this.currentPos] == this.playButton) || (this.components[this.currentPos] == this.videoToggleButton) || (this.components[this.currentPos] == this.rwdButton) || (this.components[this.currentPos] == this.skipBwdButton) || (this.components[this.currentPos] == this.skipFwdButton) || (this.components[this.currentPos] == this.fwdButton) || (this.components[this.currentPos] == this.muteButton) || (this.components[this.currentPos] == this.ccButton) || (this.components[this.currentPos] == this.ccExpander) || (this.components[this.currentPos] == this.sapExpander) || (this.components[this.currentPos] == this.videoExpander)) {
+        } else if ((this.components[this.currentPos] == this.playButton) || (this.components[this.currentPos] == this.videoToggleButton) || (this.components[this.currentPos] == this.rwdButton) || (this.components[this.currentPos] == this.skipBwdButton) || (this.components[this.currentPos] == this.skipFwdButton) || (this.components[this.currentPos] == this.fwdButton) || (this.components[this.currentPos] == this.muteButton) || (this.components[this.currentPos] == this.ccButton) || (this.components[this.currentPos] == this.ccExpander) || (this.components[this.currentPos] == this.sapExpander)) {
             //when a keyUp is received from the buttons in the bottom navigation bar
             this.removeFocus();
             this.currentObj = this.audioTracksList;
@@ -919,8 +917,7 @@ var HTML5PlayerControls = function() {
                 expandSAP(this)
                 break
             case 1:
-                // expandCCStyles(this) // use the styles dropdown for testing on PC
-                expandCC(this)
+                toggleCC()
                 break
             case 2:
                 fastrwd()
@@ -932,8 +929,7 @@ var HTML5PlayerControls = function() {
                 fastfwd();
                 break;
             case 5:
-                // expandVideos(this)
-                toggleCC()
+                expandCC(this)
                 break
             case 6:
                 if (this.audioListVisible == false) {
