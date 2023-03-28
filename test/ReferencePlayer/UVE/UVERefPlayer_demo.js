@@ -413,8 +413,8 @@ function playbackStateChanged(event) {
                                 break
                         }
                         var option = document.createElement("option");
-                        option.text = lang + modifier
                         option.value = trackNo;
+                        option.text = lang + modifier
                         audioTracks.add(option);
                     }
                 }
