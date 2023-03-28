@@ -432,8 +432,8 @@ function playbackStateChanged(event) {
                         audioTracks.add(option);
                     }
                 }
-            }
 */
+            }
 
             break;
         case playerStatesEnum.playing:
