@@ -403,6 +403,8 @@ function playbackStateChanged(event) {
                             case 'fr':
                                 modifier = 'French'
                                 break
+                            default:
+                                modifier = '??? ' + atl.language + ' ???'
                         }
                         switch(true) {
                             case (atl.accessibilityType.includes('description')):
@@ -411,6 +413,8 @@ function playbackStateChanged(event) {
                             case (atl.accessibilityType.includes('enhanced')):
                                 modifier = 'Enhanced Audio'
                                 break
+                            default:
+                                modifier = '??? ' + atl.accessibilityType + ' ???'
                         }
                         var option = document.createElement("option");
                         option.value = trackNo;

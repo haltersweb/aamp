@@ -207,7 +207,7 @@ body {
 }
 
 #sapExpander::before {
-    content: "SAP";
+    content: "PAS";
     position: absolute;
     left: 0.5rem;
     top: 0.8rem;
