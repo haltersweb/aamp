@@ -379,16 +379,6 @@ function playbackStateChanged(event) {
                 var audioTrackList = JSON.parse(audioTracksAvailable); // 
 
                 // Iteratively adding all the options to audioTracks
-
-                for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
-                    var option = document.createElement("option");
-                    option.value = trackNo;
-                    let atl = audioTrackList[trackNo]
-                    option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
-                    audioTracks.add(option);
-                }
-
-/* 
                 for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
                     let atl = audioTrackList[trackNo]
                     if (atl.codec == "ec-3") {
@@ -423,8 +413,6 @@ function playbackStateChanged(event) {
                         audioTracks.add(option);
                     }
                 }
- */
-
             }
 
             break;
