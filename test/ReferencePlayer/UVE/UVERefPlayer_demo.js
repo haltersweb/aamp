@@ -381,11 +381,11 @@ function playbackStateChanged(event) {
                 // Iteratively adding all the options to audioTracks
 
                 for (var trackNo = 0; trackNo < audioTrackList.length; trackNo += 1) {
-                    var option = document.createElement('option')
+                    let atl = audioTrackList[trackNo]
+                    if (atl.codec !== 'ec-3') { continue }
+                    let option = document.createElement('option')
                     option.value = trackNo
-                    let lang = "L-NONE"
-                    let modifier = "M-NONE"
-                    option.text = lang + modifier
+                    option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
                     audioTracks.add(option);
                 }
 /*
