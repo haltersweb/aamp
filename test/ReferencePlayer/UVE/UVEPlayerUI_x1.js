@@ -24,8 +24,7 @@ var disableButtons = false;
 var currentObjID = "";
 const xreCCOptions1 = { textItalicized: false, textEdgeStyle:"none", textEdgeColor:"black", textSize: "large", windowFillColor: "black", fontStyle: "default", textForegroundColor: "black", windowFillOpacity: "transparent", textForegroundOpacity: "solid", textBackgroundColor: "white", textBackgroundOpacity:"solid", windowBorderEdgeStyle: "none", windowBorderEdgeColor: "blue", textUnderline: false };
 const xreCCOptions2 = { textItalicized: true, textEdgeStyle:"none", textEdgeColor:"black", textSize: "small", windowFillColor: "black", fontStyle: "default", textForegroundColor: "blue", windowFillOpacity: "transparent", textForegroundOpacity: "solid", textBackgroundColor: "red", textBackgroundOpacity:"solid", windowBorderEdgeStyle: "none", windowBorderEdgeColor: "blue", textUnderline: true };
-// const ccOptions1 = {"penItalicized":false,"textEdgeStyle":"none","textEdgeColor":"black","penSize":"small","windowFillColor":"black","fontStyle":"default","textForegroundColor":"black","windowFillOpacity":"transparent","textForegroundOpacity":"solid","textBackgroundColor":"cyan","textBackgroundOpacity":"solid","windowBorderEdgeStyle":"none","windowBorderEdgeColor":"black","penUnderline":false};
-const ccOptions1 = {"penItalicized":false,"textEdgeStyle":"none","textEdgeColor":"white","penSize":"large","windowFillColor":"black","fontStyle":"default","textForegroundColor":"white","windowFillOpacity":"transparent","textForegroundOpacity":"solid","textBackgroundColor":"black","textBackgroundOpacity":"solid","windowBorderEdgeStyle":"none","windowBorderEdgeColor":"white","penUnderline":false};
+const ccOptions1 = {"penItalicized":false,"textEdgeStyle":"none","textEdgeColor":"black","penSize":"small","windowFillColor":"black","fontStyle":"default","textForegroundColor":"black","windowFillOpacity":"transparent","textForegroundOpacity":"solid","textBackgroundColor":"cyan","textBackgroundOpacity":"solid","windowBorderEdgeStyle":"none","windowBorderEdgeColor":"black","penUnderline":false};
 const ccOptions2 = {"penItalicized":false,"textEdgeStyle":"none","textEdgeColor":"red","penSize":"large","windowFillColor":"black","fontStyle":"default","textForegroundColor":"red","windowFillOpacity":"transparent","textForegroundOpacity":"solid","textBackgroundColor":"black","textBackgroundOpacity":"solid","windowBorderEdgeStyle":"none","windowBorderEdgeColor":"red","penUnderline":false};
 // create cc option object for xre receiver cc rendering
 var xreCCOptions = {};
@@ -90,9 +89,9 @@ function toggleCC() {
             playerObj.setTextStyleOptions(JSON.stringify(ccOptions));
         } else {
             XREReceiver.onEvent("onClosedCaptions", { enable: true });
-            // XREReceiver.onEvent("onClosedCaptions", { setOptions: xreCCOptions});
+            XREReceiver.onEvent("onClosedCaptions", { setOptions: xreCCOptions});
             //set this to xreCCOptions1 (large) instead of xreCCOptions
-            XREReceiver.onEvent("onClosedCaptions", { setOptions: xreCCOptions1});
+            //XREReceiver.onEvent("onClosedCaptions", { setOptions: xreCCOptions1});
         }
         ccStatus = true;
         document.getElementById("ccIcon").src = "../icons/closedCaptioning.png";
@@ -459,7 +458,7 @@ var HTML5PlayerControls = function() {
         // Buttons
         this.sapExpander = document.getElementById("sapExpander")
         this.ccExpander = document.getElementById("ccExpander")
-        this.adExpander = document.getElementById("adExpander")
+        this.ccStylesExpander = document.getElementById("ccStylesExpander")
         //
 
         this.currentObj = this.playButton
@@ -470,10 +469,11 @@ var HTML5PlayerControls = function() {
             this.playButton,        //3
             this.fwdButton,         //4
             this.ccExpander,        //5
-            this.audioTracksList,   //6
-            this.ccTracksList,      //7
-            this.ccStylesList,      //8
-            this.videoFileList      //9g
+            this.ccStylesExpander,  //6
+            this.audioTracksList,   //7
+            this.ccTracksList,      //8
+            this.ccStylesList,      //9
+            this.videoFileList      //10
         ]
         //this.currentPos = 3
         this.currentPos = this.components.indexOf(this.playButton);
@@ -544,6 +544,10 @@ var HTML5PlayerControls = function() {
             // expandCCStyles() // use the styles dropdown for testing on PC
             expandCC()
         })
+        this.ccStylesExpander.addEventListener("click", function() {
+            // expandCCStyles() // use the styles dropdown for testing on PC
+            expandCCStyles()
+        })
 
         // end ADINA CHANGES
 
@@ -591,7 +595,7 @@ var HTML5PlayerControls = function() {
             this.prevCCSelect();
         } else if ((this.components[this.currentPos] == this.ccStylesList) && (this.ccStyleListVisible)) {
             this.prevCCStyleSelect();
-        } else if ((this.components[this.currentPos] == this.playButton) || (this.components[this.currentPos] == this.videoToggleButton) || (this.components[this.currentPos] == this.rwdButton) || (this.components[this.currentPos] == this.skipBwdButton) || (this.components[this.currentPos] == this.skipFwdButton) || (this.components[this.currentPos] == this.fwdButton) || (this.components[this.currentPos] == this.muteButton) || (this.components[this.currentPos] == this.ccButton) || (this.components[this.currentPos] == this.ccExpander) || (this.components[this.currentPos] == this.sapExpander)) {
+        } else if ((this.components[this.currentPos] == this.playButton) || (this.components[this.currentPos] == this.videoToggleButton) || (this.components[this.currentPos] == this.rwdButton) || (this.components[this.currentPos] == this.skipBwdButton) || (this.components[this.currentPos] == this.skipFwdButton) || (this.components[this.currentPos] == this.fwdButton) || (this.components[this.currentPos] == this.muteButton) || (this.components[this.currentPos] == this.ccButton) || (this.components[this.currentPos] == this.ccExpander) || (this.components[this.currentPos] == this.ccStylesExpander) || (this.components[this.currentPos] == this.sapExpander)) {
             //when a keyUp is received from the buttons in the bottom navigation bar
             this.removeFocus();
             this.currentObj = this.audioTracksList;
@@ -933,6 +937,9 @@ var HTML5PlayerControls = function() {
                 expandCC(this)
                 break
             case 6:
+                expandCCStyles(this)
+                break
+            case 7:
                 if (this.audioListVisible == false) {
                     this.showAudioDropDown();
                 } else {
@@ -948,7 +955,7 @@ var HTML5PlayerControls = function() {
                     // end ADINA CHANGES
                 }
                 break;
-            case 7:
+            case 8:
                 if (this.ccListVisible == false) {
                     this.showCCDropDown();
                 } else {
@@ -964,7 +971,7 @@ var HTML5PlayerControls = function() {
                     // end ADINA CHANGES
                 }
                 break;
-            case 8:  // USING CC STYLE LIST FOR TESTING
+            case 9:  // USING CC STYLE LIST FOR TESTING
                 if (this.ccStyleListVisible == false) {
                     this.showCCStyleDropDown();
                 } else {
@@ -973,14 +980,14 @@ var HTML5PlayerControls = function() {
                     // start ADINA CHANGES
                     // go back to the CC button:
                     this.removeFocus();
-                    this.currentObj = this.ccExpander;
-                    this.currentPos = this.components.indexOf(this.ccExpander);
+                    this.currentObj = this.ccStylesExpander;
+                    this.currentPos = this.components.indexOf(this.ccStylesExpander);
                     this.addFocus();
                     console.log('closing cc styles list')
                     // end ADINA CHANGES
                 }
                 break;
-            case 9:
+            case 10:
                 if (this.dropDownListVisible == false) {
                     this.showDropDown();
                 } else {

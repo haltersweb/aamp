@@ -22,7 +22,6 @@ body {
 
 .button img,
 #playerType,
-/* #ccStyles, */
 #cacheOnly,
 #cacheOnlyButton,
 #seekState,
@@ -37,7 +36,6 @@ body {
 #okButton,
 #audioTitle,
 #ccTitle,
-/* #ccButton, */
 #currentDuration,
 #totalDuration {
     display: none;
@@ -92,9 +90,9 @@ body {
 #videoToggleButton,
 #skipBackwardButton,
 #skipForwardButton,
-#muteVideoButton,
+#muteVideoButton/* ,
 #ccExpander,
-#adExpander {
+#ccStylesExpander */ {
     display: none;
 }
 
@@ -219,13 +217,13 @@ body {
     font-weight: bold;
 }
 
-#ccExpander,
 #ccButton {
     left: 20vw;
 }
 
+#ccButton::before,
 #ccExpander::before,
-#ccButton::before {
+#ccStylesExpander::before {
     content: "CC";
     position: absolute;
     left: 0.75rem;
@@ -237,8 +235,23 @@ body {
 }
 
 #ccExpander {
-    content: "CC+";
-    left: 0vw;
+    left: auto;
+    right: 7vw;
+}
+
+#ccStylesExpander {
+    left: auto;
+    right: 2vw;
+}
+
+#ccExpander::before {
+    content: "CCt";
+    left: 0.55em;
+}
+
+#ccStylesExpander::before {
+    content: "CCs";
+    left: 0.55em;
 }
 
 #x1_overlay_bknd,
