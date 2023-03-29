@@ -403,11 +403,11 @@ function playbackStateChanged(event) {
                     }
 
                     switch (true) {
-                        case 1+1 == 2:
-                            modifier = 'FOOBAR'
+                        case atl.accessibilityType.includes('description'):
+                            modifier = 'YES IT DOES'
                             break
                         default:
-                            modifier = 'YADAYADA'
+                            modifier = 'NO IT DOESNT'
                     }
 /* 
                     switch (true) {
@@ -422,7 +422,7 @@ function playbackStateChanged(event) {
                     }
  */
 
-                    option.text = lang + ' | ' + modifier
+                    option.text = lang + ' , ' + modifier
                     audioTracks.add(option);
                 }
 /*
