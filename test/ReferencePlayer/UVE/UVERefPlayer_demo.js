@@ -401,8 +401,28 @@ function playbackStateChanged(event) {
                         default:
                             lang = atl.language.toUpperCase()
                     }
-                    
-                    option.text = lang + ' - ' + modifier
+
+                    switch (true) {
+                        case 1+1 == 2:
+                            modifier = 'FOOBAR'
+                            break
+                        default:
+                            modifier = 'YADAYADA'
+                    }
+/* 
+                    switch (true) {
+                        case (atl.accessibilityType.includes('description')):
+                            modifier = 'Audio Description'
+                            break
+                        case (atl.accessibilityType.includes('enhanced')):
+                            modifier = 'Enhanced Audio'
+                            break
+                        default:
+                            modifier = atl.accessibilityType.toUpperCase()
+                    }
+ */
+
+                    option.text = lang + ' | ' + modifier
                     audioTracks.add(option);
                 }
 /*
