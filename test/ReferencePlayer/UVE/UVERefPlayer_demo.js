@@ -385,7 +385,10 @@ function playbackStateChanged(event) {
                     if (atl.codec !== 'ec-3') { continue }
                     let option = document.createElement('option')
                     option.value = trackNo
-                    option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
+                    let lang = atl.language
+                    let modifier = atl.accessibilityType
+                    //option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
+                    option.text = lang + ' ' + modifier
                     audioTracks.add(option);
                 }
 /*
