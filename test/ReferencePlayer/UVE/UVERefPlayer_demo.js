@@ -387,7 +387,7 @@ function playbackStateChanged(event) {
                     option.value = trackNo
                     let lang = atl.language
                     let modifier = atl.accessibilityType
-                    //option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
+                    // option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
                     switch (atl.language) {
                         case 'en':
                             lang = 'English'
@@ -401,7 +401,6 @@ function playbackStateChanged(event) {
                         default:
                             lang = atl.language.toUpperCase()
                     }
-
                     switch (true) {
                         case atl.accessibilityType === undefined:
                             modifier = ''
@@ -415,56 +414,9 @@ function playbackStateChanged(event) {
                         default:
                             modifier = atl.accessibilityType.toUpperCase()
                     }
- 
-
                     option.text = lang + ' ' + modifier
                     audioTracks.add(option);
                 }
-/*
-                for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
-                    var option = document.createElement("option");
-                    option.value = trackNo;
-                    let atl = audioTrackList[trackNo]
-                    option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
-                    audioTracks.add(option);
-                }
-*/
-/*
-                for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
-                    let atl = audioTrackList[trackNo]
-                    if (atl.codec == "ec-3") {
-                        let lang = ""
-                        let modifier = ""
-                        switch(atl.language) {
-                            case 'en':
-                                modifier = 'English'
-                                break
-                            case 'es':
-                                modifier = 'Spanish'
-                                break
-                            case 'fr':
-                                modifier = 'French'
-                                break
-                            default:
-                                modifier = '??? ' + atl.language + ' ???'
-                        }
-                        switch(true) {
-                            case (atl.accessibilityType.includes('description')):
-                                modifier = 'Audio Description'
-                                break
-                            case (atl.accessibilityType.includes('enhanced')):
-                                modifier = 'Enhanced Audio'
-                                break
-                            default:
-                                modifier = '??? ' + atl.accessibilityType + ' ???'
-                        }
-                        var option = document.createElement("option");
-                        option.value = trackNo;
-                        option.text = lang + modifier
-                        audioTracks.add(option);
-                    }
-                }
-*/
             }
 
             break;
