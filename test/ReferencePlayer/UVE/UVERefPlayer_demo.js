@@ -387,7 +387,7 @@ function playbackStateChanged(event) {
                     option.value = trackNo
                     language = atl.lang
                     modifier = atl.accessibilityType
-                    option.text = language + " " + atl.accessibilityType;
+                    option.text = language + " " + modifier;
 
                     
                     audioTracks.add(option);
