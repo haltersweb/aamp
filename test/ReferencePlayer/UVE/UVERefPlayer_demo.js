@@ -392,19 +392,21 @@ function playbackStateChanged(event) {
                         case 'en':
                             lang = 'English'
                             break
-                        case 'as':
+                        case 'es':
                             lang = 'Spanish'
                             break
                         case 'fr':
                             lang = 'French'
                             break
+                        default:
+                            lang = lang.toUpperCase()
                     }
                     
                     
                     
                     
                     
-                    option.text = lang + ' ' + modifier
+                    option.text = lang + ' | ' + modifier
                     audioTracks.add(option);
                 }
 /*
