@@ -403,7 +403,7 @@ function playbackStateChanged(event) {
                     }
 
                     switch (true) {
-                        case 'this is a description.'.includes('description'):
+                        case modifier.includes('description'):
                             modifier = 'YES IT DOES'
                             break
                         default:
@@ -422,7 +422,7 @@ function playbackStateChanged(event) {
                     }
  */
 
-                    option.text = lang + ' , ' + modifier
+                    option.text = lang + ' % ' + modifier
                     audioTracks.add(option);
                 }
 /*
