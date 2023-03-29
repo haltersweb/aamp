@@ -403,7 +403,7 @@ function playbackStateChanged(event) {
                     }
 
                     switch (true) {
-                        case atl.accessibilityType.includes('description'):
+                        case 'this is a description.'.includes('description'):
                             modifier = 'YES IT DOES'
                             break
                         default:
