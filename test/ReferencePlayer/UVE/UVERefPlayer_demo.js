@@ -385,14 +385,18 @@ function playbackStateChanged(event) {
                     if (atl.codec !== 'ec-3') { continue }
                     let option = document.createElement('option')
                     option.value = trackNo
-                    language = atl.lang
-                    modifier = atl.accessibilityType
-                    option.text = language + " " + modifier;
-
-                    
+                    option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
                     audioTracks.add(option);
                 }
-
+/*
+                for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
+                    var option = document.createElement("option");
+                    option.value = trackNo;
+                    let atl = audioTrackList[trackNo]
+                    option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
+                    audioTracks.add(option);
+                }
+*/
 /*
                 for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
                     let atl = audioTrackList[trackNo]
