@@ -388,6 +388,22 @@ function playbackStateChanged(event) {
                     let lang = atl.language
                     let modifier = atl.accessibilityType
                     //option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
+                    switch (atl.language) {
+                        case 'en':
+                            lang = 'English'
+                            break
+                        case 'as':
+                            lang = 'Spanish'
+                            break
+                        case 'fr':
+                            lang = 'French'
+                            break
+                    }
+                    
+                    
+                    
+                    
+                    
                     option.text = lang + ' ' + modifier
                     audioTracks.add(option);
                 }
