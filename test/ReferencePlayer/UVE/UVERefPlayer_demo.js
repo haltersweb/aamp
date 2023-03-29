@@ -387,7 +387,7 @@ function playbackStateChanged(event) {
                     option.value = trackNo
                     let lang = atl.language
                     //let modifier = atl.accessibilityType
-                    let modifier = 'this is a description.'
+                    let modifier = (typeof atl.accessibilityType)
                     //option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
                     switch (atl.language) {
                         case 'en':
@@ -402,7 +402,7 @@ function playbackStateChanged(event) {
                         default:
                             lang = atl.language.toUpperCase()
                     }
-
+/* 
                     switch (true) {
                         case modifier.includes('description'):
                             modifier = 'YES IT DOES'
@@ -410,6 +410,7 @@ function playbackStateChanged(event) {
                         default:
                             modifier = 'NO IT DOESNT'
                     }
+ */
 /* 
                     switch (true) {
                         case (atl.accessibilityType.includes('description')):
@@ -423,7 +424,7 @@ function playbackStateChanged(event) {
                     }
  */
 
-                    option.text = lang + ' % ' + modifier
+                    option.text = lang + ' &&& ' + modifier
                     audioTracks.add(option);
                 }
 /*
