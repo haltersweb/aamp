@@ -386,8 +386,7 @@ function playbackStateChanged(event) {
                     let option = document.createElement('option')
                     option.value = trackNo
                     let lang = atl.language
-                    //let modifier = atl.accessibilityType
-                    let modifier = (typeof atl.accessibilityType)
+                    let modifier = atl.accessibilityType
                     //option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
                     switch (atl.language) {
                         case 'en':
@@ -402,29 +401,23 @@ function playbackStateChanged(event) {
                         default:
                             lang = atl.language.toUpperCase()
                     }
-/* 
+
                     switch (true) {
-                        case modifier.includes('description'):
-                            modifier = 'YES IT DOES'
+                        case atl.accessibilityType === undefined:
+                            modifier = ''
                             break
-                        default:
-                            modifier = 'NO IT DOESNT'
-                    }
- */
-/* 
-                    switch (true) {
-                        case (atl.accessibilityType.includes('description')):
+                        case atl.accessibilityType.includes('description'):
                             modifier = 'Audio Description'
                             break
-                        case (atl.accessibilityType.includes('enhanced')):
+                        case atl.accessibilityType.includes('enhanced'):
                             modifier = 'Enhanced Audio'
                             break
                         default:
                             modifier = atl.accessibilityType.toUpperCase()
                     }
- */
+ 
 
-                    option.text = lang + ' &&& ' + modifier
+                    option.text = lang + ' ' + modifier
                     audioTracks.add(option);
                 }
 /*
