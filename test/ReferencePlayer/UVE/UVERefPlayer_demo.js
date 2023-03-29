@@ -386,7 +386,8 @@ function playbackStateChanged(event) {
                     let option = document.createElement('option')
                     option.value = trackNo
                     let lang = atl.language
-                    let modifier = atl.accessibilityType
+                    //let modifier = atl.accessibilityType
+                    let modifier = 'this is a description.'
                     //option.text = atl.language + " | " + atl.codec + " | " + atl.rendition + " | " + atl.accessibilityType + " | " + atl.Type;
                     switch (atl.language) {
                         case 'en':
