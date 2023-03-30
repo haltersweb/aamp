@@ -49,6 +49,8 @@ let previousAdPosition = -2;
 //To turn on native CC rendering
 var enableNativeCC = true;
 
+var DrmConfig = {'com.microsoft.playready':'mds.ccp.xcal.tv', 'com.widevine.alpha':'mds.ccp.xcal.tv', 'preferredKeysystem':'com.widevine.alpha'};
+
 //DRM config for Sintel asset
 var SintelDrmConfig = {
 	'com.microsoft.playready':'https://amssamples.keydelivery.mediaservices.windows.net/PlayReady/',
@@ -163,7 +165,7 @@ var defaultInitConfig = {
     /**
      * drmConfig for the playback
      */
-    //drmConfig: DrmConfig, //For sample structure DrmConfig
+    drmConfig: DrmConfig, //For sample structure DrmConfig
 
     /**
      * stereo-only for the playback
@@ -376,7 +378,7 @@ function playbackStateChanged(event) {
                 // Iteratively adding all the options to audioTracks
                 for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
                     var option = document.createElement("option");
-                    option.value = trackNo;
+                    option.value = JSON.stringify(audioTrackList[trackNo]);
                     option.text = audioTrackList[trackNo].language + " " + audioTrackList[trackNo].rendition;
                     audioTracks.add(option);
                 }

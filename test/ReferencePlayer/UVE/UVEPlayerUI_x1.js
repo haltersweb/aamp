@@ -258,15 +258,14 @@ function getVideo(cache_only) {
 
 //function to Change the Audio Track
 function changeAudioTrack() {
-    var audioTrackID =  document.getElementById("audioTracks").value; // get selected Audio track
-    //ADINA changed to try catch so as not to error out if no tracks
-    try {
-        playerObj.setAudioTrack(Number(audioTrackID));
-        console.log("Setting Audio track: " + audioTrackID);
-    }
-    catch(err) {
-        console.log("Couldn't set audio track because there are none.")
-    }
+    var audString = (document.getElementById("audioTracks").value).replace("\"language\":", "\"languages\":");
+    var audioTrackObj  = JSON.parse(audString); // get selected Audio track
+    // fix the mismatch between languages name in the get&set apis
+    var langListString = audioTrackObj["languages"];
+    var langList = langListString.split(","); // if there are multiple languages
+    audioTrackObj["languages"] = langList;
+    console.log("Setting Audio track: " + JSON.stringify(audioTrackObj));
+    playerObj.setPreferredAudioLanguage(JSON.stringify(audioTrackObj));
 }
 
 //function to Change the Closed Captioning Track
