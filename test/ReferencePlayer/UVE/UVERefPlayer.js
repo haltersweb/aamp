@@ -376,7 +376,7 @@ function playbackStateChanged(event) {
                 // Iteratively adding all the options to audioTracks
                 for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
                     var option = document.createElement("option");
-                    option.value = trackNo;
+                    option.value = JSON.stringify(audioTrackList[trackNo]);
                     option.text = audioTrackList[trackNo].language + " " + audioTrackList[trackNo].rendition;
                     audioTracks.add(option);
                 }
