@@ -8,6 +8,12 @@ body {
     font-family: XfinityStandard, sans-serif;
     color: gray;
 }
+h1, h2, h3 {
+    font-family: XfinityStandardThin, sans-serif;
+}
+div {
+    box-sizing: border-box;
+}
 
 .adina_added {
     /* this is just a marker for my HTML changes */
@@ -262,7 +268,6 @@ body {
     position: absolute;
     left: 0;
     top: 0;
-    box-sizing: border-box;
     z-index: -1;
 }
 #x1_selection_picker {}
@@ -346,10 +351,7 @@ select:not([size="1"]) {
 #guide_top,
 #guide_main,
 #guide_bottom {
-    display: none;
     margin-left: 5vw;
-    box-sizing: border-box;
-    /* border: 1px solid yellow; */
 }
 #guide_top {
     display: block;
@@ -375,7 +377,6 @@ select:not([size="1"]) {
     display: flex;
     height: 10vh;
     flex-wrap: nowrap;
-    box-sizing: border-box;
     font-size: 2vw;
 }
 .guide_row:first-child {
@@ -389,7 +390,6 @@ select:not([size="1"]) {
     width: 14.35%;
     padding-top: 2.7vh;
     padding-left: 2vw;
-    box-sizing: border-box;
     white-space: nowrap;
     overflow: hidden;
 }
@@ -471,9 +471,78 @@ select:not([size="1"]) {
 }
 
 #guide_bottom {
+    display: none;
     height: 30vh;
 }
 
-#x1_entity_page {
-
+#x1_entity {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 30;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(to right, rgba(0,0,0,.95), rgba(0,0,0,.2)),url("basketball_net.jpg");
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+#x1_entity h1 {
+    color: white;
+}
+#entity_top,
+#entity_main,
+#entity_bottom {
+    margin-left: 5vw;
+}
+#entity_top {
+    height: 30vh;
+}
+#entity_main {
+    height: 40vh;
+}
+#entity_main .description {
+    width: 60%;
+}
+#entity_main .badges {
+    margin-left: 65%;
+    font-size: .5em;
+}
+#entity_main .badge {
+    display: inline-block;
+    box-sizing: border-box;
+    border-radius: .2em;
+    padding: .1em .2em;
+    margin-right: .35em;
+    background-color: lightgray;
+    color: black;
+}
+#entity_main .badge:first-child {
+    border: 1px solid lightgray;
+    background-color: black;
+    color: lightgray;
+}
+#entity_bottom {
+    height: 30vh;
+}
+.watch_options {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+}
+.watch_option {
+    border-radius: 0.2em;
+    background-color: darkgray;
+    color: white;
+    width: 5em;
+    margin-right: 0.75em;
+    padding: 0.7em 0.5em;
+}
+.watch_option:first-child {
+    width: 6em;
+    padding: 0.4em 0.5em;
+}
+.watch_option:last-child {
+    width: 2.5em;
+    text-align: center;
 }
