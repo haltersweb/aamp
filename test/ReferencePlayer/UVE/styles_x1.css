@@ -339,6 +339,7 @@ select:not([size="1"]) {
     left: 0;
     top: 0;
     z-index: 20;
+    width: 100vw;
     height: 100vh;
     background-color: black;
 }
@@ -385,7 +386,7 @@ select:not([size="1"]) {
 .guide_cell {
     position: relative;
     border-left: 1px solid gray;
-    width: 14.8%;
+    width: 14.35%;
     padding-top: 2.7vh;
     padding-left: 2vw;
     box-sizing: border-box;
@@ -394,7 +395,7 @@ select:not([size="1"]) {
 }
 .guide_cell:first-child {
     border-left: none;
-    width: 14%;
+    width: 13.90%;
 }
 .guide_row:not(:first-child) .guide_cell:first-child {
     padding-top: 3.3vh;
@@ -406,28 +407,20 @@ select:not([size="1"]) {
     font-size: 1.6vw;
     text-align: right;
 }
-#channel_usa {
-    background-image: url("https://www.usanetwork.com/generetic/generated/images/22cb4c7e029716aa34d858d6f9fb18f3.png");
-    background-position-y: 3.5vh;
-}
-#channel_bravo {
-    background-image: url("https://img.nbc.com/sites/nbcunbc/files/images/2019/3/11/Bravo-Logo-All-platform-AssetsBravo-Logo-White-905x300.png?impolicy=nbc_com&imwidth=340&imdensity=1");
-    background-size: 3.5vw;
-}
-#channel_universal_kids {
-    background-image: url("https://www.universalkids.com/assets/images/UniKids-Logo-120x93.png");
-}
-#channel_nbc {
-    background-image: url("https://www.nbc.com/generetic/generated/images/4fac8d8aaa7d8798a512dac0322d8d14.png");
-    background-size: 3vw;
-    background-position-x: 2.75vw;
-}
-#channel_syfy {
-    background-image: url("https://upload.wikimedia.org/wikipedia/commons/c/c6/SYFY_Logo_2020.png?20200702203840");
-    background-position-y: 4.1vh;
-}
 .guide_cell.colspan_2 {
-    width: 29.6%;
+    width: 28.70%; /* 14.35% x 2 */
+}
+.guide_cell.colspan_3 {
+    width: 43.05%;
+}
+.guide_cell.colspan_4 {
+    width: 57.40%;
+}
+.guide_cell.colspan_5 {
+    width: 71.75%;
+}
+.guide_cell.colspan_6 {
+    width: 86.1%;
 }
 .guide_row:first-child .guide_cell {
     padding-top: 1.5vh;
@@ -455,6 +448,26 @@ select:not([size="1"]) {
     border-top: .6vh solid white;
     border-bottom: .6vh solid white;
     color: cornflowerblue;
+}
+#channel_usa {
+    background-image: url("https://www.usanetwork.com/generetic/generated/images/22cb4c7e029716aa34d858d6f9fb18f3.png");
+    background-position-y: 3.5vh;
+}
+#channel_bravo {
+    background-image: url("https://img.nbc.com/sites/nbcunbc/files/images/2019/3/11/Bravo-Logo-All-platform-AssetsBravo-Logo-White-905x300.png?impolicy=nbc_com&imwidth=340&imdensity=1");
+    background-size: 3.5vw;
+}
+#channel_universal_kids {
+    background-image: url("https://www.universalkids.com/assets/images/UniKids-Logo-120x93.png");
+}
+#channel_nbc {
+    background-image: url("https://www.nbc.com/generetic/generated/images/4fac8d8aaa7d8798a512dac0322d8d14.png");
+    background-size: 3vw;
+    background-position-x: 2.75vw;
+}
+#channel_syfy {
+    background-image: url("https://upload.wikimedia.org/wikipedia/commons/c/c6/SYFY_Logo_2020.png?20200702203840");
+    background-position-y: 4.1vh;
 }
 
 #guide_bottom {
