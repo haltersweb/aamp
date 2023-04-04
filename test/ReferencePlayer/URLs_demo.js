@@ -19,6 +19,7 @@
 
 var urls = [
     { name: "Notre Dame Football", url: "https://ccr.s8live-nab.xcr.comcast.net/NABD_HD_30461_0_3046122222222221163.mpd", useDefaultDrmConfig: true },
+    { name: "SyFy", url: "http://cdn-ec-den-016.linear-nat-pil-hd.xcr.comcast.net/SYFYD_HD_NAT_16291_0_7280561135462210163.mpd", useDefaultDrmConfig: true },
     { name: "Chicago Fire", url: "http://10.131.157.158:8080/DERK_HD_TEST_123_0_0123456789012345163.mpd", useDefaultDrmConfig: false },
     { name: "Big Buck Bunny (CLEAR)", url: "http://amssamples.streaming.mediaservices.windows.net/683f7e47-bd83-4427-b0a3-26a6c4547782/BigBuckBunny.ism/manifest(format=mpd-time-csf)", useDefaultDrmConfig: false },
 ];
