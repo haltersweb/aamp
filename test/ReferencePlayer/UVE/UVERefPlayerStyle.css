@@ -18,7 +18,7 @@
 */
 
 body {
-    font: 15px "XfinityStandard", sans-serif;
+    font: 15px Tahoma;
     color: white;
 }
 
@@ -81,7 +81,7 @@ body {
     position: absolute;
     left: 50%;
     top: 58%;
-    font-family: "XfinityStandard", sans-serif;
+    font-family: Arial, Helvetica, sans-serif;
     font-size: 24px;
     font-weight: bold;
     color: #000;
@@ -131,7 +131,7 @@ input[type=text]:focus {
     position: fixed;
     margin-top: -4%;
     margin-left: 3.5%;
-    font-family: "XfinityStandard", sans-serif;
+    font-family: Verdana, Geneva, sans-serif;
     letter-spacing: 3px;
     font-size: 12px;
     z-index: 50;
@@ -141,7 +141,7 @@ input[type=text]:focus {
     position: fixed;
     margin-top: -4%;
     margin-left: 12.5%;
-    font-family: "XfinityStandard", sans-serif;
+    font-family: Verdana, Geneva, sans-serif;
     letter-spacing: 3px;
     font-size: 12px;
     z-index: 50;
