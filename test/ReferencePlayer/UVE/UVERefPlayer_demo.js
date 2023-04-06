@@ -49,16 +49,14 @@ let previousAdPosition = -2;
 //To turn on native CC rendering
 var enableNativeCC = true;
 
+// DRM config for Notre Dame Football asset
+var DrmConfig = {'com.microsoft.playready':'mds.ccp.xcal.tv', 'com.widevine.alpha':'mds.ccp.xcal.tv', 'preferredKeysystem':'com.widevine.alpha'};
+
 //DRM config for Sintel asset
 var SintelDrmConfig = {
 	'com.microsoft.playready':'https://amssamples.keydelivery.mediaservices.windows.net/PlayReady/',
 	'com.widevine.alpha':'https://amssamples.keydelivery.mediaservices.windows.net/Widevine/?KID=f9dbca11-a1e2-45c8-891f-fb71063cbfdb',
 	'preferredKeysystem':'com.microsoft.playready'};
-
-// DRM config for Notre Dame Football asset
-var DrmConfig = {'com.microsoft.playready':'mds.ccp.xcal.tv', 'com.widevine.alpha':'mds.ccp.xcal.tv', 'preferredKeysystem':'com.widevine.alpha'};
-
-
 //AAMP initConfig is used to pass certain predefined config params to AAMP
 //Commented out values are not implemented for now
 //Values assigned are default values of each config param
@@ -267,10 +265,10 @@ var bgPlayerObj = null;
 
 window.onload = function() {
     initPlayerControls();
-    //resetPlayer();
+    resetPlayer();
     resetUIOnNewAsset();
 
-    //loadUrl(urls[urlIndex]);
+    loadUrl(urls[urlIndex]);
 }
 
 function resetSubtitles(emptyBuffers) {
@@ -331,8 +329,8 @@ function playbackStateChanged(event) {
         case playerStatesEnum.initialized:
             playerState = playerStatesEnum.initialized;
             var videoTracksAvailable = playerObj.getAvailableVideoTracks();
-            var audioTracksAvailable = playerObj.getAvailableAudioTracks(); // gets the data from the manifest and builds JSON
-            var textTracksAvailable = playerObj.getAvailableTextTracks();
+            var audioTracksAvailable = playerObj.getAvailableAudioTracks(true);
+            var textTracksAvailable = playerObj.getAvailableTextTracks(true);
             console.log("Available audio tracks: " + audioTracksAvailable);
             console.log("Available text tracks: " + textTracksAvailable);
 
@@ -376,14 +374,14 @@ function playbackStateChanged(event) {
                     }
                 }
 
-                var audioTrackList = JSON.parse(audioTracksAvailable); // 
+                var audioTrackList = JSON.parse(audioTracksAvailable);
 
                 // Iteratively adding all the options to audioTracks
 
-                for (var trackNo = 0; trackNo < audioTrackList.length; trackNo += 1) {
+                for (var trackNo = 0; trackNo < audioTrackList.length; trackNo++) {
                     let atl = audioTrackList[trackNo]
                     if (atl.codec !== 'ec-3') { continue }
-                    let option = document.createElement('option')
+                    var option = document.createElement("option");
                     option.value = JSON.stringify(audioTrackList[trackNo]);
                     let lang = atl.language
                     let modifier = atl.accessibilityType
