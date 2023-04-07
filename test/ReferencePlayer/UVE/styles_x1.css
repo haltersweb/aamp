@@ -1,18 +1,88 @@
+:root {
+    /* color definitions */
+    --blue-05: #D9E1F2;
+    --blue-10: #8BAFF9;
+    --blue-20: #4784FF; /* for header text, pointer, check circles */
+    --blue-30: #3376FF;
+    --blue-40: #2970FF; /* progress bar */
+    --blue-50: #1F69FF;
+    --blue-60: #0051D0;
+    --blue-70: #0040A3;
+    --blue-80: #003485;
+    --blue-90: #131E34;
+
+    --white: #ffffff; /* primary */
+    --gray-05: #F6F6F9;
+    --gray-10: #ECECF2; /* TV-G badge border and text */
+    --gray-20: #CECEDA; /* secondary */
+    --gray-30: #B1B1BD; /* other badges background */
+    --gray-40: #8B8B97;
+    --gray-50: #62626C; /* TV-G badge background, active buttons, tertiary */
+    --gray-60: #484851; /* other badges text */
+    --gray-70: #35353B; /* guide borders */
+    --gray-80: #232328; /* unselected buttons */
+    --gray-90: #141417;
+    --black: #000000;
+
+/* font weight definitions */
+    --X-thin: 100;
+    --X-extra-light: 200;
+    --X-light: 300;
+    --X-regular: 400;
+    --X-medium: 500;
+    --X-bold: 700;
+}
+
+/* page styles */
 body {
     margin: 0;
     padding: 0;
-    background-color: #000;
+    background-color: var(--black);
     /* background-image: url("cocomelon.png"); */
     background-repeat: no-repeat;
     background-size: cover;
-    font-family: XfinityStandard, sans-serif;
-    color: gray;
+    font-weight: var(--X-light);
+    font-style: normal;
+    font-family: 'XfinityStandard', sans-serif;
+    color: var(--white);
 }
-h1, h2, h3 {
-    font-family: XfinityStandardThin, sans-serif;
+
+h1, .h1 {
+    font-weight: var(--X-light);
+}
+h2, .h2 {
+    font-weight: var(--X-light);
+}
+h3, .h3 {
+    color: var(--white);
+    font-weight: var(--X-light);
 }
 div {
     box-sizing: border-box;
+}
+
+.primary {
+    color: var(--white);
+}
+.secondary {
+    color: var(--gray-20);
+}
+.tertiary {
+    color: var(--gray-50);
+}
+.light {
+    font-weight: var(--X-light);
+}
+.regular {
+    font-weight: var(--X-regular);
+}
+.caption_1 {
+    font-weight: var(--X-regular);
+    font-size: 20px;
+}
+.caption_2 {
+    font-weight: var(--X-regular);
+    font-size: 16px;
 }
 
 .adina_added {
@@ -74,11 +144,19 @@ div {
     margin: 0;
     border: none;
     border-radius: 1.5rem;
-    background-color: gray;
+    background-color: var(--gray-70);
 }
-
 .button.focus {
-    background-color: lightgray;
+    background-color: var(--gray-50);
+}
+.button::before,
+.button::after {
+    content: "";
+    display: block;
+    position: absolute;
+    color: var(--white);
+    font-family: 'XfinityStandard', sans-serif;
+    font-size: 1.1rem;
 }
 
 #videoControlsDiv {
@@ -117,7 +195,7 @@ div {
     border-top-width: 0.85rem;
     border-bottom-width: 0.85rem;
     border-left-width: 1.6rem;
-    border-left-color: white;
+    border-left-color: var(--white);
 }
 
 #playOrPauseButton [src="../icons/pause.png"] {
@@ -129,8 +207,8 @@ div {
     height: 1.7rem;
     object-position: 5rem;
     border: 0rem solid transparent;
-    border-left: 0.25rem solid white;
-    border-right: 0.25rem solid white;
+    border-left: 0.25rem solid var(--white);
+    border-right: 0.25rem solid var(--white);
 }
 
 #rewindButton {
@@ -138,9 +216,6 @@ div {
 }
 
 #rewindButton::before {
-    content: "";
-    display: block;
-    position: absolute;
     top: 0.95rem;
     right: 0.8rem;
     width: 0;
@@ -149,18 +224,15 @@ div {
     border-top-width: 0.6rem;
     border-bottom-width: 0.6rem;
     border-right-width: 1.2rem;
-    border-right-color: white;
+    border-right-color: var(--white);
 }
 
 #rewindButton::after {
-    content: "";
-    display: block;
-    position: absolute;
     top: 0.95rem;
     left: 0.9rem;
     width: 0;
     height: 1.2rem;
-    border-right: white 0.15rem solid;
+    border-right: var(--white) 0.15rem solid;
 }
 
 #fastForwardButton {
@@ -168,9 +240,6 @@ div {
 }
 
 #fastForwardButton::before {
-    content: "";
-    display: block;
-    position: absolute;
     top: 0.95rem;
     left: 0.8rem;
     width: 0;
@@ -179,18 +248,15 @@ div {
     border-top-width: 0.6rem;
     border-bottom-width: 0.6rem;
     border-left-width: 1.2rem;
-    border-left-color: white;
+    border-left-color: var(--white);
 }
 
 #fastForwardButton::after {
-    content: "";
-    display: block;
-    position: absolute;
     top: 0.95rem;
     right: 0.9rem;
     width: 0;
     height: 1.2rem;
-    border-left: white 0.15rem solid;
+    border-left: var(--white) 0.15rem solid;
 }
 
 #adExpander {
@@ -199,13 +265,8 @@ div {
 
 #adExpander::before {
     content: "AD";
-    position: absolute;
     left: 0.7rem;
     top: 0.8rem;
-    color: white;
-    font-family: XfinityStandard, sans-serif;
-    font-size: 1.1rem;
-    font-weight: bold;
 }
 
 #sapExpander {
@@ -214,13 +275,8 @@ div {
 
 #sapExpander::before {
     content: "SAP";
-    position: absolute;
     left: 0.5rem;
     top: 0.8rem;
-    color: white;
-    font-family: XfinityStandard, sans-serif;
-    font-size: 1.1rem;
-    font-weight: bold;
 }
 
 #ccButton {
@@ -231,13 +287,8 @@ div {
 #ccExpander::before,
 #ccStylesExpander::before {
     content: "CC";
-    position: absolute;
     left: 0.75rem;
     top: 0.8rem;
-    color: white;
-    font-family: XfinityStandard, sans-serif;
-    font-size: 1.1rem;
-    font-weight: bold;
 }
 
 #ccExpander {
@@ -283,7 +334,7 @@ div {
     height: .2rem;
     bottom: 6rem;
     left: 10%;
-    background-color: gray;
+    background-color: var(--gray-50);
 }
 
 #seekBar {
@@ -293,7 +344,7 @@ div {
     left: 0;
 }
 #seekBar[style] {
-    background-color: cornflowerblue !important;
+    background-color: var(--blue-20) !important;
 }
 #seekBar::after {
     content: "";
@@ -304,7 +355,7 @@ div {
     width: 1rem;
     height: 1rem;
     border-radius: 0.5rem;
-    background-color: white;
+    background-color: var(--white);
 }
 
 #x1_selection_picker {
@@ -314,7 +365,6 @@ div {
     z-index: 100;
     background-color: transparent;
     border: none;
-    color: white;
 }
 
 select[size="1"],
@@ -331,11 +381,12 @@ select:not([size="1"]) {
     padding: 1rem;
     background-color: transparent;
     border-radius: 0.3rem;
+    color: var(--gray-20);
 }
 
 #x1_selection_picker .selected {
-    background-color: gray;
-    color: white;
+    background-color: var(--gray-50);
+    color: var(--white);
 }
 
 /*************** GUIDE STYLES *****************/
@@ -346,7 +397,7 @@ select:not([size="1"]) {
     z-index: 20;
     width: 100vw;
     height: 100vh;
-    background-color: black;
+    background-color: var(--black);
 }
 #guide_top,
 #guide_main,
@@ -362,17 +413,19 @@ select:not([size="1"]) {
     margin: 0;
     padding: 0;
     line-height: 1;
-    font-size: 1.75vw;
+    font-size: 1.55vw;
+    color: var(--gray-50);
+    font-weight: var(--X-regular);
 }
 #guide_top span {
-    color: white;
+    color: var(--white);
 }
 #guide_main {
     height: 56vh;
     display: block;
 }
 .guide_row {
-    border-bottom: 1px solid gray;
+    border-bottom: 1px solid var(--gray-60);
     border-top: none;
     display: flex;
     height: 10vh;
@@ -382,14 +435,15 @@ select:not([size="1"]) {
 .guide_row:first-child {
     height: 6vh;
     font-size: 1.3vw;
-    border-top: 1px solid gray;
+    border-top: 1px solid var(--gray-60);
 }
 .guide_cell {
     position: relative;
-    border-left: 1px solid gray;
+    border-left: 1px solid var(--gray-60);
     width: 14.35%;
     padding-top: 2.7vh;
     padding-left: 2vw;
+    color: var(--gray-30);
     white-space: nowrap;
     overflow: hidden;
 }
@@ -403,7 +457,7 @@ select:not([size="1"]) {
     background-repeat: no-repeat;
     background-size: 4vw;
     background-position: 2vw 3vh;
-    color: white;
+    color: var(--white);
     font-size: 1.6vw;
     text-align: right;
 }
@@ -424,8 +478,12 @@ select:not([size="1"]) {
 }
 .guide_row:first-child .guide_cell {
     padding-top: 1.5vh;
+    font-weight: var(--X-regular);
+    color: var(--gray-50);
 }
-
+.guide_row:first-child .guide_cell:nth-child(2) {
+    color: var(--white);
+}
 .guide_cell::after {
     content: "";
     position: absolute;
@@ -435,8 +493,8 @@ select:not([size="1"]) {
     height: 10vh;
     background: linear-gradient(
         to left,
-        black,
-        black,
+        var(--black),
+        var(--black),
         rgba(0, 0, 0, 0)
     );
 }
@@ -445,9 +503,13 @@ select:not([size="1"]) {
 }
 .guide_cell.selected {
     padding-top: 2.1vh;
-    border-top: .6vh solid white;
-    border-bottom: .6vh solid white;
-    color: cornflowerblue;
+    border-top: .6vh solid var(--white);
+    border-bottom: .6vh solid var(--white);
+    color: var(--blue-20);
+}
+#channel_ksnv {
+    background-image: url("https://upload.wikimedia.org/wikipedia/en/thumb/9/9f/KSNV_logo.svg/400px-KSNV_logo.svg.png");
+    background-position-y: 2.6vh;
 }
 #channel_usa {
     background-image: url("https://www.usanetwork.com/generetic/generated/images/22cb4c7e029716aa34d858d6f9fb18f3.png");
@@ -459,6 +521,7 @@ select:not([size="1"]) {
 }
 #channel_universal_kids {
     background-image: url("https://www.universalkids.com/assets/images/UniKids-Logo-120x93.png");
+    background-position-y: 2.6vh;
 }
 #channel_nbc {
     background-image: url("https://www.nbc.com/generetic/generated/images/4fac8d8aaa7d8798a512dac0322d8d14.png");
@@ -486,8 +549,15 @@ select:not([size="1"]) {
     background-repeat: no-repeat;
     background-size: cover;
 }
+#x1_entity p {
+    font-size: 1.75vw;
+    margin: 0;
+    color: var(--gray-20);
+}
 #x1_entity h1 {
-    color: white;
+    font-size: 3.2vw;
+    margin: 0;
+    margin-bottom: 0.1em;
 }
 #entity_top,
 #entity_main,
@@ -495,34 +565,38 @@ select:not([size="1"]) {
     margin-left: 5vw;
 }
 #entity_top {
-    height: 30vh;
+    height: 34vh;
 }
 #entity_main {
-    height: 40vh;
+    height: 45vh;
 }
 #entity_main .description {
     width: 60%;
+    margin-bottom: 1.75em;
 }
 #entity_main .badges {
     margin-left: 65%;
-    font-size: .5em;
+    margin-bottom: 2em;
+    font-size: .85em;
+    font-weight: var(--X-medium);
 }
 #entity_main .badge {
     display: inline-block;
     box-sizing: border-box;
     border-radius: .2em;
-    padding: .1em .2em;
+    padding: 0 .2em;
     margin-right: .35em;
-    background-color: lightgray;
-    color: black;
+    background-color: var(--gray-30);
+    color: var(--gray-60);
 }
 #entity_main .badge:first-child {
-    border: 1px solid lightgray;
-    background-color: black;
-    color: lightgray;
+    border: 1px solid var(--gray-10);
+    background-color: var(--gray-70);
+    color: var(--gray-10);
 }
 #entity_bottom {
-    height: 30vh;
+    height: 19vh;
+    display: none;
 }
 .watch_options {
     display: flex;
@@ -531,16 +605,18 @@ select:not([size="1"]) {
     align-items: center;
 }
 .watch_option {
-    border-radius: 0.2em;
-    background-color: darkgray;
-    color: white;
     width: 5em;
     margin-right: 0.75em;
-    padding: 0.7em 0.5em;
+    padding: 0.7em 0.7em;
+    border-radius: 0.3em;
+    background-color: var(--gray-70);
+    color: var(--white);
+    font-size: 1.6vw;
 }
 .watch_option:first-child {
     width: 6em;
-    padding: 0.4em 0.5em;
+    padding: 0.4em 0.7em;
+    background-color: var(--gray-50);
 }
 .watch_option:last-child {
     width: 2.5em;
