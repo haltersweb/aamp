@@ -165,11 +165,11 @@ div {
     bottom: 7vh;
     width: 100%;
     height: 20vh;
-    transition: transform 350ms;
+    transition: transform 400ms;
 }
 
 .hideit {
-    transform: translateY(20vh);
+    transform: translateY(23vh);
 }
 
 #videoControlsDiv .button {
