@@ -54,10 +54,12 @@ function playPause() {
         // If it was a trick play operation
         if ( playbackSpeeds[playbackRateIndex] != 1 ) {
             // Change to normal speed
+            //timedHideVideoControls()
             playerObj.play();
         } else {
             if (playerState === playerStatesEnum.paused) {
                 // Play the video
+                //timedHideVideoControls()
                 playerObj.play();
             } else { // Pause the video
                 playerObj.pause();
@@ -66,6 +68,24 @@ function playPause() {
         playbackRateIndex = playbackSpeeds.indexOf(1);
     }
 };
+
+function showVideoControls() {
+    document.getElementById("videoControlsDiv").classList.remove('hideit')
+}
+
+function hideVideoControls() {
+    document.getElementById("videoControlsDiv").classList.add('hideit')
+}
+
+//ADINA: STILL NEED TO TEST AND IMPLEMENT THE TWO FOLLOWING FUNCTIONS
+function timedHideVideoControls() {
+    const hideControlsTimer = setTimeout(hideVideoControls, 3000)
+    console.log('began timed hide of video controls.')
+}
+function cancelHideControlsTimer() {
+    clearTimeout(hideControlsTimer)
+    console.log('cancel timed hide of video controls')
+}
 
 function mutePlayer() {
     if (mutedStatus === false) {
@@ -458,7 +478,6 @@ var HTML5PlayerControls = function() {
         this.sapExpander = document.getElementById("sapExpander")
         this.ccExpander = document.getElementById("ccExpander")
         this.ccStylesExpander = document.getElementById("ccStylesExpander")
-        //
 
         this.currentObj = this.playButton
         this.components = [
@@ -1158,9 +1177,15 @@ var HTML5PlayerControls = function() {
                 case 48: // Number 0
                 case 49: // Number 1
                 case 50: // Number 2
+                        // control bar up
+                        showVideoControls()
+                        break;
                 case 51: // Number 3
                 case 52: // Number 4
                 case 53: // Number 5
+                    // control bar down
+                    hideVideoControls()
+                    break;
                 case 54: // Number 6
                 case 55: // Number 7
                 case 56: // Number 8
