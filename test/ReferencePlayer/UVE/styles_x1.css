@@ -550,7 +550,7 @@ select:not([size="1"]) {
     z-index: 30;
     width: 100vw;
     height: 100vh;
-    background: linear-gradient(to right, rgba(0,0,0,.95), rgba(0,0,0,.2)),url("basketball_net.jpg");
+    background: linear-gradient(to right, rgba(0,0,0,.95), rgba(0,0,0,.2)),url("notre_dame_players.jpg");
     background-repeat: no-repeat;
     background-size: cover;
 }
@@ -626,4 +626,14 @@ select:not([size="1"]) {
 .watch_option:last-child {
     width: 2.5em;
     text-align: center;
+}
+#x1_entity p.attribution {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    color: var(--gray-40);
+    font-size: .8vw;
+}
+#x1_entity p.attribution a {
+    color: var(--blue-60);
 }

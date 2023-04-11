@@ -817,15 +817,29 @@ var HTML5PlayerControls = function() {
         // show X1 Guide
         this.x1_guide.classList.remove('hidden')
         this.guideVisible = true
+
+        //hide X1 Entity Page if visible
+        if (this.entityVisible) {
+            this.hideX1EntityPage()
+        }
     }
 
     this.hideX1Guide = function() {
         this.x1_guide.classList.add('hidden')
+        this.guideVisible = false
 
         // remove .selected from .grid_cells
         this.x1_guide.querySelector('.selected').classList.remove('selected')
+    }
 
-        this.guideVisible = false
+    this.showX1EntityPage = function() {
+        this.x1_entity_page.classList.remove('hidden')
+        this.entityVisible = true
+    }
+
+    this.hideX1EntityPage = function() {
+        this.x1_entity_page.classList.add('hidden')
+        this.entityVisible = false
     }
 
     this.showX1SelectionPicker = function(list, index) {
@@ -1148,7 +1162,11 @@ var HTML5PlayerControls = function() {
                         }
                         break
                 case 8: // Last.  Del or Backspace (keyboard)
-                        this.last() // ADINA TBD: what 
+                        if (this.entityVisible) {
+                            this.hideX1EntityPage()
+                        } else {
+                            this.showX1EntityPage()
+                        }    
                         break
 		        case 179:
                 case 80: // P
