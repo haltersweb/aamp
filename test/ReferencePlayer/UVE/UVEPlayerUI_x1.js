@@ -1194,6 +1194,11 @@ var HTML5PlayerControls = function() {
                         break;
                 case 48: // Number 0
                 case 49: // Number 1
+                        if (this.entityVisible) {
+                            this.hideX1EntityPage()
+                        } else {
+                            this.showX1EntityPage()
+                        }
                 case 50: // Number 2
                         // control bar up
                         showVideoControls()
