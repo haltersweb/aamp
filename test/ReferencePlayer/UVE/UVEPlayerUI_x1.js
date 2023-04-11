@@ -1155,19 +1155,13 @@ var HTML5PlayerControls = function() {
                             this.ok();
                         }
                         break;
-                case 73: // Info.  I (keyboard)
+                case 73: // Info.  (I on the keyboard)
                         if (this.dropDownListVisible == false) {
                             expandVideos(this)
                             //move focus to play
                         }
                         break
-                case 8: // Last.  Del or Backspace (keyboard)
-                        if (this.entityVisible) {
-                            this.hideX1EntityPage()
-                        } else {
-                            this.showX1EntityPage()
-                        }    
-                        break
+                case 8: // Last.  (Del or Backspace on the keyboard)
 		        case 179:
                 case 80: // P
                         playPause();
