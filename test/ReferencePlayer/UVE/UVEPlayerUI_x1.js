@@ -1019,7 +1019,7 @@ var HTML5PlayerControls = function() {
                     this.addFocus();
                     console.log('closing videos list')
                     //play the video you selected
-                    playPause();
+                    //playPause();
                     // end ADINA CHANGES
                 }
                 break;
