@@ -247,26 +247,12 @@ function getVideo(cache_only) {
         }
         else
         {
-            // ADINA added a try catch since resetPlayer() was throwing the error:
-            // UVEMediaPlayer.js:189 Uncaught ReferenceError: AAMPMediaPlayer is not defined
-            try {
-                resetPlayer();
-            }
-            catch(err) {
-                console.warn(err)
-            }
+            resetPlayer();
             resetUIOnNewAsset();
             for ( urlIndex = 0; urlIndex < urls.length; urlIndex++) {
                 if (newFileURLContent === urls[urlIndex].url) {
                     console.log("FOUND at index: " + urlIndex);
-                    // ADINA added a try catch since resetPlayer() was throwing the error:
-                    // Uncaught TypeError: Cannot read properties of null (reading 'initConfig')
-                    try {
-                        loadUrl(urls[urlIndex], (0 == urlIndex));
-                    }
-                    catch(err) {
-                        console.warn(err)
-                    }
+                    loadUrl(urls[urlIndex], (0 == urlIndex));
                     break;
                 }
             }
