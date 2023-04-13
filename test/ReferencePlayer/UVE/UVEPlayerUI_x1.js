@@ -1173,25 +1173,32 @@ var HTML5PlayerControls = function() {
                         loadPrevAsset();
                         break;
                 case 48: // Number 0
+                        break;
                 case 49: // Number 1
                         if (this.entityVisible) {
                             this.hideX1EntityPage()
                         } else {
                             this.showX1EntityPage()
                         }
+                        break;
                 case 50: // Number 2
                         // control bar up
                         showVideoControls()
                         break;
                 case 51: // Number 3
+                        break;
                 case 52: // Number 4
+                        break;
                 case 53: // Number 5
                     // control bar down
                     hideVideoControls()
-                    break;
+                        break;
                 case 54: // Number 6
+                        break;
                 case 55: // Number 7
+                        break;
                 case 56: // Number 8
+                        break;
                 case 57: // Number 9
                          // If keypress is for input to the progress position field
                          if((this.currentObj === this.jumpPositionInput) && !disableButtons) {
