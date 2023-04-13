@@ -147,7 +147,7 @@ div {
     background-color: var(--gray-70);
 }
 .button.focus {
-    background-color: var(--gray-50);
+    background-color: var(--gray-30);
 }
 .button::before,
 .button::after {
@@ -514,7 +514,7 @@ select:not([size="1"]) {
 }
 #channel_ksnv {
     background-image: url("https://upload.wikimedia.org/wikipedia/en/thumb/9/9f/KSNV_logo.svg/400px-KSNV_logo.svg.png");
-    background-position-y: 2.6vh;
+    background-position-y: 2.5vh;
 }
 #channel_usa {
     background-image: url("https://www.usanetwork.com/generetic/generated/images/22cb4c7e029716aa34d858d6f9fb18f3.png");
@@ -526,7 +526,7 @@ select:not([size="1"]) {
 }
 #channel_universal_kids {
     background-image: url("https://www.universalkids.com/assets/images/UniKids-Logo-120x93.png");
-    background-position-y: 2.6vh;
+    background-position-y: 2.5vh;
 }
 #channel_nbc {
     background-image: url("https://www.nbc.com/generetic/generated/images/4fac8d8aaa7d8798a512dac0322d8d14.png");
