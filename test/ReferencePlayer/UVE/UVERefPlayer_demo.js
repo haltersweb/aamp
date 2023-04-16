@@ -407,7 +407,7 @@ function playbackStateChanged(event) {
                             modifier = 'Audio Description'
                             break
                         case atl.accessibilityType.includes('enhanced'):
-                            modifier = 'English Dialog Enhanced'
+                            modifier = 'Dialog Enhanced'
                             break
                         default:
                             modifier = atl.accessibilityType.toUpperCase()
